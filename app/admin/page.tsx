@@ -93,7 +93,6 @@ interface Question {
   correctOptionIndex: number;
 }
 
-// Compatible with both Homepage and Mock Test Runner page
 interface MockTest {
   id: string;
   slug: string;
@@ -285,12 +284,10 @@ export default function EnterpriseAdminCommandCenter() {
     active: true,
   });
 
-  // New Staff Form
   const [newStaffName, setNewStaffName] = useState('');
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [newStaffRole, setNewStaffRole] = useState<StaffRole>('editor');
 
-  // Role Permission Helper
   const hasPermission = (
     perm: 'delete_content' | 'manage_partners' | 'manage_rbac' | 'programmatic_seo' | 'manage_tools' | 'rollback'
   ): boolean => {
@@ -301,7 +298,7 @@ export default function EnterpriseAdminCommandCenter() {
     if (currentStaff.role === 'moderator') {
       return ['manage_partners'].includes(perm);
     }
-    return false; // 'editor' can only create/update posts, pages & mock tests
+    return false;
   };
 
   // ==========================================
@@ -373,7 +370,6 @@ export default function EnterpriseAdminCommandCenter() {
   const [pageTitle, setPageTitle] = useState('');
   const [pageSlug, setPageSlug] = useState('');
   const [pageContent, setPageContent] = useState('<p>Write page content here...</p>');
-  const [pageEditingId, setPageEditingId] = useState<string | null>(null);
 
   // Categories State
   const [categories, setCategories] = useState<Category[]>([
@@ -384,14 +380,6 @@ export default function EnterpriseAdminCommandCenter() {
     { id: '5', name: 'Admission', slug: 'admission', count: 0 },
     { id: '6', name: 'Sarkari Yojana', slug: 'sarkari-yojana', count: 0 },
   ]);
-  const [newCatName, setNewCatName] = useState('');
-
-  // Global Portal Settings
-  const [breakingNewsTicker, setBreakingNewsTicker] = useState(
-    '🔥 SSC 2025-26 Signature (6x2 cm, 10-20 KB) & All-in-One Form Tool is now LIVE!'
-  );
-  const [whatsappChannelUrl, setWhatsappChannelUrl] = useState('https://whatsapp.com');
-  const [telegramChannelUrl, setTelegramChannelUrl] = useState('https://telegram.org');
 
   // ==========================================
   // 4. INITIALIZATION & STORAGE SYNC
@@ -418,7 +406,6 @@ export default function EnterpriseAdminCommandCenter() {
   };
 
   useEffect(() => {
-    // 1. Load Posts
     const savedPosts = localStorage.getItem('careersathi_posts');
     if (savedPosts) {
       try {
@@ -430,7 +417,6 @@ export default function EnterpriseAdminCommandCenter() {
       }
     }
 
-    // 2. Load Revisions
     const savedRevs = localStorage.getItem('careersathi_post_revisions');
     if (savedRevs) {
       try {
@@ -438,7 +424,6 @@ export default function EnterpriseAdminCommandCenter() {
       } catch {}
     }
 
-    // 3. Load Static Pages
     const savedPages = localStorage.getItem('careersathi_pages');
     if (savedPages) {
       try {
@@ -446,7 +431,6 @@ export default function EnterpriseAdminCommandCenter() {
       } catch {}
     }
 
-    // 4. Load Mock Tests
     const savedMock = localStorage.getItem('careersathi_mock_tests');
     if (savedMock) {
       try {
@@ -454,7 +438,6 @@ export default function EnterpriseAdminCommandCenter() {
       } catch {}
     }
 
-    // 5. Load Tools Config
     const savedTools = localStorage.getItem('careersathi_tools_config');
     if (savedTools) {
       try {
@@ -464,7 +447,6 @@ export default function EnterpriseAdminCommandCenter() {
       localStorage.setItem('careersathi_tools_config', JSON.stringify(DEFAULT_TOOLS_CONFIG));
     }
 
-    // 6. Load Staff List
     const savedStaff = localStorage.getItem('careersathi_staff');
     if (savedStaff) {
       try {
@@ -472,7 +454,6 @@ export default function EnterpriseAdminCommandCenter() {
       } catch {}
     }
 
-    // 7. Load Audit Logs
     const savedLogs = localStorage.getItem('careersathi_audit_logs');
     if (savedLogs) {
       try {
@@ -480,7 +461,6 @@ export default function EnterpriseAdminCommandCenter() {
       } catch {}
     }
 
-    // 8. Load Partners & Courses
     const savedPartners = localStorage.getItem('careersathi_partners');
     if (savedPartners) {
       try {
@@ -668,7 +648,6 @@ export default function EnterpriseAdminCommandCenter() {
     });
 
     if (editingId) {
-      // Save previous snapshot to Revisions before overwriting!
       const oldPost = posts.find((p) => p.id === editingId);
       if (oldPost) {
         const rev: PostRevision = {
@@ -927,7 +906,6 @@ export default function EnterpriseAdminCommandCenter() {
     const mins = Number(testTimeMinutes) || 30;
     const marks = questionsList.length * 4;
 
-    // Saves both property naming conventions so Homepage AND Mock Test Page work 100%
     const newTest: MockTest = {
       id: Date.now().toString(),
       slug: generatedSlug,
@@ -1023,9 +1001,9 @@ export default function EnterpriseAdminCommandCenter() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col md:flex-row font-sans">
       {/* ========================================== */}
-      {/* ENTERPRISE SIDEBAR NAVIGATION              */}
+      {/* ENTERPRISE SIDEBAR NAVIGATION (FIXED WIDTH)*/}
       {/* ========================================== */}
-      <aside className="w-full md:w-68 bg-slate-900 border-r border-slate-800 p-4 space-y-5 flex flex-col justify-between shrink-0">
+      <aside className="w-full md:w-64 lg:w-72 bg-slate-900 border-b md:border-b-0 md:border-r border-slate-800 p-4 space-y-5 flex flex-col justify-between shrink-0">
         <div className="space-y-5">
           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
             <div>
@@ -1035,11 +1013,11 @@ export default function EnterpriseAdminCommandCenter() {
               <p className="text-[11px] text-slate-400">Enterprise RBAC &amp; SEO Command Center</p>
             </div>
             <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold">
-              v3.5 Pro
+              v3.6 Pro
             </span>
           </div>
 
-          {/* Active Staff Role Switcher (Test RBAC Live!) */}
+          {/* Active Staff Role Switcher */}
           <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2 text-xs">
             <div className="flex items-center justify-between">
               <span className="text-slate-400 text-[11px]">Active Session Role:</span>
@@ -1066,6 +1044,7 @@ export default function EnterpriseAdminCommandCenter() {
           {/* Navigation Links */}
           <nav className="space-y-1 text-xs font-bold">
             <button
+              type="button"
               onClick={() => setActiveTab('dashboard')}
               className={`w-full text-left px-3 py-2.5 rounded-xl transition flex items-center justify-between ${
                 activeTab === 'dashboard'
@@ -1077,6 +1056,7 @@ export default function EnterpriseAdminCommandCenter() {
             </button>
 
             <button
+              type="button"
               onClick={() => {
                 resetForm();
                 setActiveTab('posts');
@@ -1094,6 +1074,7 @@ export default function EnterpriseAdminCommandCenter() {
             </button>
 
             <button
+              type="button"
               onClick={() => {
                 resetForm();
                 setActiveTab('add-post');
@@ -1108,6 +1089,7 @@ export default function EnterpriseAdminCommandCenter() {
             </button>
 
             <button
+              type="button"
               onClick={() => setActiveTab('programmatic-seo')}
               className={`w-full text-left px-3 py-2.5 rounded-xl transition flex items-center justify-between ${
                 activeTab === 'programmatic-seo'
@@ -1122,6 +1104,7 @@ export default function EnterpriseAdminCommandCenter() {
             </button>
 
             <button
+              type="button"
               onClick={() => setActiveTab('tools-manager')}
               className={`w-full text-left px-3 py-2.5 rounded-xl transition flex items-center justify-between ${
                 activeTab === 'tools-manager'
@@ -1136,6 +1119,7 @@ export default function EnterpriseAdminCommandCenter() {
             </button>
 
             <button
+              type="button"
               onClick={() => setActiveTab('mock-tests')}
               className={`w-full text-left px-3 py-2.5 rounded-xl transition flex items-center justify-between ${
                 activeTab === 'mock-tests' || activeTab === 'add-mock-test'
@@ -1150,6 +1134,7 @@ export default function EnterpriseAdminCommandCenter() {
             </button>
 
             <button
+              type="button"
               onClick={() => setActiveTab('partners-approval')}
               className={`w-full text-left px-3 py-2.5 rounded-xl transition flex items-center justify-between ${
                 activeTab === 'partners-approval'
@@ -1166,6 +1151,7 @@ export default function EnterpriseAdminCommandCenter() {
             </button>
 
             <button
+              type="button"
               onClick={() => setActiveTab('pages')}
               className={`w-full text-left px-3 py-2.5 rounded-xl transition ${
                 activeTab === 'pages' || activeTab === 'add-page'
@@ -1177,6 +1163,7 @@ export default function EnterpriseAdminCommandCenter() {
             </button>
 
             <button
+              type="button"
               onClick={() => setActiveTab('rbac-staff')}
               className={`w-full text-left px-3 py-2.5 rounded-xl transition flex items-center justify-between ${
                 activeTab === 'rbac-staff'
@@ -1189,6 +1176,7 @@ export default function EnterpriseAdminCommandCenter() {
             </button>
 
             <button
+              type="button"
               onClick={() => setActiveTab('settings-backup')}
               className={`w-full text-left px-3 py-2.5 rounded-xl transition ${
                 activeTab === 'settings-backup'
@@ -1212,9 +1200,9 @@ export default function EnterpriseAdminCommandCenter() {
       </aside>
 
       {/* ========================================== */}
-      {/* MAIN WORKSPACE AREA                        */}
+      {/* MAIN WORKSPACE AREA (min-w-0 FIXED)        */}
       {/* ========================================== */}
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto space-y-6">
+      <main className="flex-1 min-w-0 p-4 md:p-8 overflow-y-auto space-y-6">
         {/* ========================================================= */}
         {/* TAB 1: EXECUTIVE DASHBOARD & TELEMETRY                    */}
         {/* ========================================================= */}
@@ -1232,6 +1220,7 @@ export default function EnterpriseAdminCommandCenter() {
               </div>
               <div className="flex flex-wrap gap-2">
                 <button
+                  type="button"
                   onClick={() => {
                     resetForm();
                     setActiveTab('add-post');
@@ -1241,12 +1230,14 @@ export default function EnterpriseAdminCommandCenter() {
                   + New Exam Post
                 </button>
                 <button
+                  type="button"
                   onClick={() => setActiveTab('programmatic-seo')}
                   className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-black shadow"
                 >
                   🚀 Bulk SEO Generator
                 </button>
                 <button
+                  type="button"
                   onClick={handleExportFullBackup}
                   className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700"
                 >
@@ -1292,6 +1283,7 @@ export default function EnterpriseAdminCommandCenter() {
                 <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                   <h3 className="text-sm font-black text-white">🛡️ Recent Staff Activity Audit Logs</h3>
                   <button
+                    type="button"
                     onClick={() => setActiveTab('rbac-staff')}
                     className="text-xs text-blue-400 hover:underline font-bold"
                   >
@@ -1348,6 +1340,7 @@ export default function EnterpriseAdminCommandCenter() {
                           </div>
                         </div>
                         <button
+                          type="button"
                           onClick={() => handleRollbackRevision(rev)}
                           className="px-2.5 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-lg font-bold text-[11px] hover:bg-amber-500 hover:text-slate-950 transition"
                         >
@@ -1515,6 +1508,7 @@ export default function EnterpriseAdminCommandCenter() {
                       </select>
 
                       <button
+                        type="button"
                         onClick={() => {
                           if (!hasPermission('manage_tools')) {
                             alert('🔒 Only Super Admin or SEO Manager can modify tools!');
@@ -1539,7 +1533,6 @@ export default function EnterpriseAdminCommandCenter() {
                     </div>
                   </div>
 
-                  {/* Tool SEO Meta Title & Description Editor */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-slate-800/80">
                     <div>
                       <label className="text-[10px] text-slate-400 block mb-1">
@@ -1586,6 +1579,7 @@ export default function EnterpriseAdminCommandCenter() {
             <div className="flex flex-wrap justify-between items-center gap-3">
               <h1 className="text-2xl font-black">📝 Manage Exam Posts ({posts.length})</h1>
               <button
+                type="button"
                 onClick={() => {
                   resetForm();
                   setActiveTab('add-post');
@@ -1604,7 +1598,7 @@ export default function EnterpriseAdminCommandCenter() {
               className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white"
             />
 
-            <div className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden">
+            <div className="bg-slate-900 rounded-2xl border border-slate-800 overflow-x-auto">
               <table className="min-w-full divide-y divide-slate-800 text-xs">
                 <thead className="bg-slate-950">
                   <tr>
@@ -1615,49 +1609,59 @@ export default function EnterpriseAdminCommandCenter() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
-                  {filteredPosts.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-800/40">
-                      <td className="px-4 py-3">
-                        <div className="font-bold text-blue-400 text-sm">{p.title}</div>
-                        <div className="text-[11px] text-slate-500 font-mono">/posts/{p.slug}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="px-2 py-0.5 bg-slate-800 rounded text-slate-200 font-bold">
-                          {p.category}
-                        </span>
-                        {p.targetExamTag && (
-                          <span className="ml-1.5 px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded font-bold text-[10px]">
-                            {p.targetExamTag}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-slate-400">
-                        <div>{p.publisherName}</div>
-                        <div className="text-[10px]">{p.publishedAt}</div>
-                      </td>
-                      <td className="px-4 py-3 text-right space-x-2 whitespace-nowrap">
-                        <Link
-                          href={`/posts/${p.slug}`}
-                          target="_blank"
-                          className="px-2.5 py-1 bg-slate-800 text-slate-200 rounded font-bold"
-                        >
-                          View ↗
-                        </Link>
-                        <button
-                          onClick={() => handleEditClick(p)}
-                          className="px-2.5 py-1 bg-blue-600/30 text-blue-300 rounded font-bold"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDeletePost(p.id, p.title)}
-                          className="px-2.5 py-1 bg-rose-950 text-rose-400 rounded font-bold"
-                        >
-                          Delete {!hasPermission('delete_content') && '🔒'}
-                        </button>
+                  {filteredPosts.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-8 text-center text-slate-500">
+                        No posts found. Click &quot;+ Add Advanced Post&quot; to publish your first update!
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredPosts.map((p) => (
+                      <tr key={p.id} className="hover:bg-slate-800/40">
+                        <td className="px-4 py-3">
+                          <div className="font-bold text-blue-400 text-sm">{p.title}</div>
+                          <div className="text-[11px] text-slate-500 font-mono">/posts/{p.slug}</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="px-2 py-0.5 bg-slate-800 rounded text-slate-200 font-bold">
+                            {p.category}
+                          </span>
+                          {p.targetExamTag && (
+                            <span className="ml-1.5 px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded font-bold text-[10px]">
+                              {p.targetExamTag}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-slate-400">
+                          <div>{p.publisherName}</div>
+                          <div className="text-[10px]">{p.publishedAt}</div>
+                        </td>
+                        <td className="px-4 py-3 text-right space-x-2 whitespace-nowrap">
+                          <Link
+                            href={`/posts/${p.slug}`}
+                            target="_blank"
+                            className="px-2.5 py-1 bg-slate-800 text-slate-200 rounded font-bold"
+                          >
+                            View ↗
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => handleEditClick(p)}
+                            className="px-2.5 py-1 bg-blue-600/30 text-blue-300 rounded font-bold"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePost(p.id, p.title)}
+                            className="px-2.5 py-1 bg-rose-950 text-rose-400 rounded font-bold"
+                          >
+                            Delete {!hasPermission('delete_content') && '🔒'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1670,7 +1674,7 @@ export default function EnterpriseAdminCommandCenter() {
         {activeTab === 'add-post' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div className="lg:col-span-8 space-y-5">
-              <div className="flex justify-between items-center">
+              <div className="flex flex-wrap justify-between items-center gap-2">
                 <h1 className="text-xl font-black">
                   {editingId ? '✏️ Edit Post (Auto-Saves Revision)' : '➕ Create SEO-Optimized Post'}
                 </h1>
@@ -1736,12 +1740,12 @@ export default function EnterpriseAdminCommandCenter() {
                     </div>
 
                     <div>
-                      <div className="flex justify-between items-center mb-1">
+                      <div className="flex flex-wrap justify-between items-center gap-2 mb-1">
                         <label className="font-bold text-slate-300">Post Title (H1)</label>
                         <button
                           type="button"
                           onClick={handleAIGenerate}
-                          className="px-3 py-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-[11px] font-black rounded-lg shadow"
+                          className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-[11px] font-black rounded-lg shadow"
                         >
                           ✨ 1-Click AI Auto-Fill Post + SEO + Tool Links
                         </button>
@@ -1787,6 +1791,53 @@ export default function EnterpriseAdminCommandCenter() {
                         />
                       </div>
                     </div>
+                  </div>
+
+                  {/* Important Dates Editor */}
+                  <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="font-black text-emerald-400">📅 Important Dates Table</span>
+                      <button
+                        type="button"
+                        onClick={() => setImportantDates([...importantDates, { label: '', date: '' }])}
+                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-bold"
+                      >
+                        + Add Date Row
+                      </button>
+                    </div>
+                    {importantDates.map((row, idx) => (
+                      <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                        <input
+                          type="text"
+                          placeholder="Event Label (e.g. Last Date)"
+                          value={row.label}
+                          onChange={(e) => {
+                            const up = [...importantDates];
+                            up[idx].label = e.target.value;
+                            setImportantDates(up);
+                          }}
+                          className="sm:col-span-6 p-2 bg-slate-950 border border-slate-700 rounded-lg text-white"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Date (e.g. 30 Nov 2026)"
+                          value={row.date}
+                          onChange={(e) => {
+                            const up = [...importantDates];
+                            up[idx].date = e.target.value;
+                            setImportantDates(up);
+                          }}
+                          className="sm:col-span-5 p-2 bg-slate-950 border border-slate-700 rounded-lg text-amber-300 font-bold"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setImportantDates(importantDates.filter((_, i) => i !== idx))}
+                          className="sm:col-span-1 bg-rose-950 text-rose-400 rounded-lg font-bold p-2"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
                   </div>
 
                   {/* Dual Mode Content Editor */}
@@ -1860,6 +1911,53 @@ export default function EnterpriseAdminCommandCenter() {
                         className="w-full min-h-[180px] p-4 bg-white text-slate-900 rounded-xl prose max-w-none"
                       />
                     )}
+                  </div>
+
+                  {/* Important Links Editor */}
+                  <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="font-black text-cyan-400">🔗 Important Links Table</span>
+                      <button
+                        type="button"
+                        onClick={() => setImportantLinks([...importantLinks, { text: '', url: '' }])}
+                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-bold"
+                      >
+                        + Add Link Row
+                      </button>
+                    </div>
+                    {importantLinks.map((lnk, idx) => (
+                      <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                        <input
+                          type="text"
+                          placeholder="Link Title (e.g. Apply Online)"
+                          value={lnk.text}
+                          onChange={(e) => {
+                            const up = [...importantLinks];
+                            up[idx].text = e.target.value;
+                            setImportantLinks(up);
+                          }}
+                          className="sm:col-span-5 p-2 bg-slate-950 border border-slate-700 rounded-lg text-white"
+                        />
+                        <input
+                          type="text"
+                          placeholder="URL (e.g. https://ssc.gov.in or /tools/form-tool)"
+                          value={lnk.url}
+                          onChange={(e) => {
+                            const up = [...importantLinks];
+                            up[idx].url = e.target.value;
+                            setImportantLinks(up);
+                          }}
+                          className="sm:col-span-6 p-2 bg-slate-950 border border-slate-700 rounded-lg text-cyan-300 font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setImportantLinks(importantLinks.filter((_, i) => i !== idx))}
+                          className="sm:col-span-1 bg-rose-950 text-rose-400 rounded-lg font-bold p-2"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
                   </div>
 
                   {/* SEO Meta Fields */}
@@ -1953,6 +2051,7 @@ export default function EnterpriseAdminCommandCenter() {
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setActiveTab('add-mock-test')}
                 className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow"
               >
@@ -1987,6 +2086,7 @@ export default function EnterpriseAdminCommandCenter() {
                     </Link>
                     {hasPermission('delete_content') && (
                       <button
+                        type="button"
                         onClick={() =>
                           saveMockTestsToStorage(mockTests.filter((x) => x.id !== t.id))
                         }
@@ -2116,7 +2216,7 @@ export default function EnterpriseAdminCommandCenter() {
                 🔒 Restricted Area: Only Super Admin or Moderator can approve coaching partners.
               </div>
             ) : (
-              <div className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden">
+              <div className="bg-slate-900 rounded-2xl border border-slate-800 overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-800">
                   <thead className="bg-slate-950">
                     <tr>
@@ -2150,6 +2250,7 @@ export default function EnterpriseAdminCommandCenter() {
                           <td className="px-4 py-3 text-right space-x-2">
                             {partner.status !== 'approved' && (
                               <button
+                                type="button"
                                 onClick={() => {
                                   const up = partnersList.map((p: any) =>
                                     p.id === partner.id ? { ...p, status: 'approved' } : p
@@ -2182,7 +2283,6 @@ export default function EnterpriseAdminCommandCenter() {
             <h1 className="text-2xl font-black">🛡️ Team RBAC Management &amp; Security Audit Logs</h1>
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-              {/* Add Staff Member */}
               <div className="md:col-span-5 bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-4">
                 <h3 className="text-sm font-black text-amber-400">➕ Add Staff / Team Member</h3>
                 <input
@@ -2210,6 +2310,7 @@ export default function EnterpriseAdminCommandCenter() {
                   <option value="superadmin">Super Admin (Full Access)</option>
                 </select>
                 <button
+                  type="button"
                   onClick={() => {
                     if (!hasPermission('manage_rbac')) {
                       alert('🔒 Only Super Admin can add staff members!');
@@ -2236,7 +2337,6 @@ export default function EnterpriseAdminCommandCenter() {
                 </button>
               </div>
 
-              {/* Staff List */}
               <div className="md:col-span-7 bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-3">
                 <h3 className="text-sm font-black text-white">👥 Authorized Team Members</h3>
                 <div className="space-y-2">
@@ -2269,7 +2369,7 @@ export default function EnterpriseAdminCommandCenter() {
             <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-3">
               <input
                 type="text"
-                placeholder="Page Title (e.g. Privacy Policy, Disclaimer)"
+                placeholder="Page Title (e.g. Privacy Policy, Disclaimer, About Us)"
                 value={pageTitle}
                 onChange={(e) => {
                   setPageTitle(e.target.value);
@@ -2283,14 +2383,18 @@ export default function EnterpriseAdminCommandCenter() {
                 className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold"
               />
               <textarea
-                rows={4}
+                rows={5}
                 value={pageContent}
                 onChange={(e) => setPageContent(e.target.value)}
                 className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
               />
               <button
+                type="button"
                 onClick={() => {
-                  if (!pageTitle) return;
+                  if (!pageTitle) {
+                    alert('Please enter a Page Title!');
+                    return;
+                  }
                   const np: CustomPage = {
                     id: Date.now().toString(),
                     title: pageTitle,
@@ -2302,12 +2406,44 @@ export default function EnterpriseAdminCommandCenter() {
                   logAuditAction('Created Static Page', pageTitle);
                   setPageTitle('');
                   setPageSlug('');
+                  alert('✅ Static Page Published!');
                 }}
-                className="px-6 py-3 bg-emerald-600 text-white font-black rounded-xl"
+                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl"
               >
                 + Publish Static Page
               </button>
             </div>
+
+            {pages.length > 0 && (
+              <div className="bg-slate-900 rounded-2xl border border-slate-800 divide-y divide-slate-800">
+                {pages.map((pg) => (
+                  <div key={pg.id} className="p-4 flex items-center justify-between">
+                    <div>
+                      <div className="font-bold text-white text-sm">{pg.title}</div>
+                      <div className="text-[11px] text-slate-400 font-mono">/pages/{pg.slug}</div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Link
+                        href={`/pages/${pg.slug}`}
+                        target="_blank"
+                        className="px-3 py-1.5 bg-slate-800 text-slate-200 rounded-lg font-bold"
+                      >
+                        View ↗
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          savePagesToStorage(pages.filter((x) => x.id !== pg.id))
+                        }
+                        className="px-3 py-1.5 bg-rose-950 text-rose-400 rounded-lg font-bold"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -2324,6 +2460,7 @@ export default function EnterpriseAdminCommandCenter() {
               </p>
               <div className="flex flex-wrap gap-4">
                 <button
+                  type="button"
                   onClick={handleExportFullBackup}
                   className="px-6 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl shadow-lg"
                 >
