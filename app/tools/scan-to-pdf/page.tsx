@@ -723,7 +723,7 @@ export default function ScanToPdfStudio() {
                       onClick={() => applyFilterToAllPages(activePage.filter)}
                       className="text-[11px] text-cyan-400 hover:underline font-bold"
                     >
-                      ✓ Apply "{activePage.filter.toUpperCase()}" to All {pages.length} Pages
+                      ✓ Apply &quot;{activePage.filter.toUpperCase()}&quot; to All {pages.length} Pages
                     </button>
                   </div>
 
