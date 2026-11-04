@@ -55,7 +55,7 @@ export default function UnlockPdfTool() {
       // Load PDF using pdf-lib (If the PDF requires a password, we attempt to load it with password if supported, or clean stream)
       let pdfDoc;
       try {
-        pdfDoc = await PDFDocument.load(pdfBuffer.slice(0), { password: password || undefined });
+        pdfDoc = await PDFDocument.load(pdfBuffer.slice(0));
       } catch (loadErr: any) {
         throw new Error('Galat password ya corrupted PDF file! Kripya sahi password dalein.');
       }
