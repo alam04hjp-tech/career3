@@ -12,6 +12,12 @@ interface AcademicRow {
   percentageOrCgpa: string;
 }
 
+interface CustomField {
+  id: string;
+  label: string;
+  value: string;
+}
+
 interface StudentProfile {
   idNumber: string;
   idType: string;
@@ -30,6 +36,7 @@ interface StudentProfile {
   addressLine1: string;
   identificationMark: string;
   academics: AcademicRow[];
+  customFields: CustomField[];
 }
 
 const DEFAULT_PROFILE: StudentProfile = {
@@ -75,6 +82,10 @@ const DEFAULT_PROFILE: StudentProfile = {
       percentageOrCgpa: '74.00',
     },
   ],
+  customFields: [
+    { id: '1', label: 'CASTE CERTIFICATE NO', value: 'CC/2026/8921' },
+    { id: '2', label: 'PAN CARD NUMBER', value: 'ABCDE1234F' },
+  ],
 };
 
 function cleanSscName(raw: string): string {
@@ -94,12 +105,15 @@ export default function OneTapFormCopilotPage() {
   const [lastVoiceCommand, setLastVoiceCommand] = useState<string>('Ready! Click Mic or Touch Buttons below...');
   const [highlightField, setHighlightField] = useState<string>('ALL');
 
+  const [newLabel, setNewLabel] = useState<string>('');
+  const [newValue, setNewValue] = useState<string>('');
+
   const pipCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const pipVideoRef = useRef<HTMLVideoElement | null>(null);
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('careersathi_student_voice_vault_v3');
+    const saved = localStorage.getItem('careersathi_student_voice_vault_v4');
     if (saved) {
       try {
         setProfile((prev) => ({ ...prev, ...JSON.parse(saved) }));
@@ -111,56 +125,33 @@ export default function OneTapFormCopilotPage() {
 
   const saveProfile = (nextProfile: StudentProfile = profile) => {
     setProfile(nextProfile);
-    localStorage.setItem('careersathi_student_voice_vault_v3', JSON.stringify(nextProfile));
-    alert('✅ Profile Saved in Browser Storage!');
+    localStorage.setItem('careersathi_student_voice_vault_v4', JSON.stringify(nextProfile));
+    alert('✅ Profile & Custom Fields Saved in Browser Storage!');
   };
 
-  const loadSampleData = () => {
-    const sample: StudentProfile = {
-      idNumber: 'XXXX-XXXX-7262',
-      idType: 'Aadhaar / Photo ID',
-      fullName: 'WASIM AKARAM',
-      fatherName: 'MD SALIMUDDIN',
-      motherName: 'SHABANA KHATOON',
-      dob: '2002-07-18',
-      gender: 'Male',
-      category: 'OBC-NCL',
-      mobile: '9876543210',
-      email: 'wasim.akaram@gmail.com',
-      bankAccountNo: '30987654321',
-      bankIfsc: 'SBIN0001234',
-      bankName: 'State Bank of India',
-      pincode: '844101',
-      addressLine1: 'Station Road, Hajipur',
-      identificationMark: 'Black mole on right palm',
-      academics: [
-        {
-          level: '10th (Matriculation)',
-          boardOrUniv: 'BSEB Patna',
-          passingYear: '2018',
-          rollNumber: '1800452',
-          rollCode: '71024',
-          percentageOrCgpa: '82.40',
-        },
-        {
-          level: '12th (Intermediate)',
-          boardOrUniv: 'BSEB Patna',
-          passingYear: '2020',
-          rollNumber: '2001189',
-          rollCode: '71024',
-          percentageOrCgpa: '79.20',
-        },
-        {
-          level: 'Graduation',
-          boardOrUniv: 'BRABU Muzaffarpur',
-          passingYear: '2023',
-          rollNumber: '203044112',
-          rollCode: '',
-          percentageOrCgpa: '75.00',
-        },
-      ],
+  const handleAddCustomField = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newLabel.trim()) return;
+    const item: CustomField = {
+      id: Date.now().toString(),
+      label: newLabel.trim().toUpperCase(),
+      value: newValue.trim(),
     };
-    saveProfile(sample);
+    const updated = {
+      ...profile,
+      customFields: [...profile.customFields, item],
+    };
+    setProfile(updated);
+    setNewLabel('');
+    setNewValue('');
+  };
+
+  const handleDeleteCustomField = (id: string) => {
+    const updated = {
+      ...profile,
+      customFields: profile.customFields.filter((f) => f.id !== id),
+    };
+    setProfile(updated);
   };
 
   const formattedData = useMemo(() => {
@@ -236,7 +227,13 @@ export default function OneTapFormCopilotPage() {
       } else if (targetField === 'MOBILE') {
         drawBigCard(ctx, 'MOBILE NUMBER', profile.mobile || 'NOT SET', '#4ade80', `Email: ${profile.email}`);
       } else {
-        drawDefaultRows(ctx, W);
+        // Check if targetField matches any custom field id
+        const matchedCustom = profile.customFields.find((cf) => cf.id === targetField);
+        if (matchedCustom) {
+          drawBigCard(ctx, matchedCustom.label, matchedCustom.value || 'NOT SET', '#06b6d4', 'Custom Vault Field');
+        } else {
+          drawDefaultRows(ctx, W);
+        }
       }
     },
     [formattedData, profile, lastVoiceCommand, isVoiceListening]
@@ -310,8 +307,8 @@ export default function OneTapFormCopilotPage() {
 
     const rec = new SpeechRec();
     rec.continuous = true;
-    rec.interimResults = true; // Real-time capture
-    rec.lang = 'en-US'; // English US captures keywords like Name, Father, DOB, Roll much better
+    rec.interimResults = true;
+    rec.lang = 'en-US';
 
     rec.onstart = () => {
       setIsVoiceListening(true);
@@ -323,57 +320,34 @@ export default function OneTapFormCopilotPage() {
       const transcript = latest[0].transcript.toLowerCase().trim();
       setLastVoiceCommand(transcript);
 
-      // Flexible Matching
-      if (
-        transcript.includes('name') ||
-        transcript.includes('naam') ||
-        transcript.includes('candidate') ||
-        transcript.includes('nem')
-      ) {
+      if (transcript.includes('name') || transcript.includes('naam') || transcript.includes('candidate')) {
         setHighlightField('NAME');
-      } else if (
-        transcript.includes('father') ||
-        transcript.includes('papa') ||
-        transcript.includes('pita') ||
-        transcript.includes('fatha')
-      ) {
+      } else if (transcript.includes('father') || transcript.includes('papa') || transcript.includes('pita')) {
         setHighlightField('FATHER');
-      } else if (transcript.includes('mother') || transcript.includes('mummy') || transcript.includes('mata')) {
+      } else if (transcript.includes('mother') || transcript.includes('mummy')) {
         setHighlightField('MOTHER');
-      } else if (
-        transcript.includes('dob') ||
-        transcript.includes('birth') ||
-        transcript.includes('date') ||
-        transcript.includes('janam')
-      ) {
+      } else if (transcript.includes('dob') || transcript.includes('birth') || transcript.includes('date')) {
         setHighlightField('DOB');
-      } else if (
-        transcript.includes('roll') ||
-        transcript.includes('10th') ||
-        transcript.includes('matric') ||
-        transcript.includes('roal')
-      ) {
+      } else if (transcript.includes('roll') || transcript.includes('10th') || transcript.includes('matric')) {
         setHighlightField('ROLL');
-      } else if (transcript.includes('bank') || transcript.includes('account') || transcript.includes('ifsc')) {
+      } else if (transcript.includes('bank') || transcript.includes('account')) {
         setHighlightField('BANK');
-      } else if (
-        transcript.includes('aadhar') ||
-        transcript.includes('aadhaar') ||
-        transcript.includes('id') ||
-        transcript.includes('adhar')
-      ) {
+      } else if (transcript.includes('aadhar') || transcript.includes('id')) {
         setHighlightField('ID');
-      } else if (transcript.includes('mobile') || transcript.includes('phone') || transcript.includes('number')) {
+      } else if (transcript.includes('mobile') || transcript.includes('phone')) {
         setHighlightField('MOBILE');
-      } else if (transcript.includes('all') || transcript.includes('back') || transcript.includes('home')) {
-        setHighlightField('ALL');
+      } else {
+        // Check custom field keywords
+        const foundCustom = profile.customFields.find((cf) => transcript.includes(cf.label.toLowerCase()));
+        if (foundCustom) {
+          setHighlightField(foundCustom.id);
+        } else if (transcript.includes('all') || transcript.includes('home')) {
+          setHighlightField('ALL');
+        }
       }
     };
 
-    rec.onerror = (e: any) => {
-      console.warn('Speech error:', e);
-    };
-
+    rec.onerror = () => {};
     rec.onend = () => {
       if (isVoiceListening) {
         try {
@@ -408,10 +382,7 @@ export default function OneTapFormCopilotPage() {
         return;
       }
 
-      const stream = (canvas as any).captureStream
-        ? (canvas as any).captureStream(15)
-        : (canvas as any).mozCaptureStream(15);
-
+      const stream = (canvas as any).captureStream ? (canvas as any).captureStream(15) : (canvas as any).mozCaptureStream(15);
       video.srcObject = stream;
       await video.play();
 
@@ -420,7 +391,7 @@ export default function OneTapFormCopilotPage() {
         setIsPipActive(true);
         startVoiceListener();
       } else {
-        alert('Picture-in-Picture is not supported on this browser.');
+        alert('Picture-in-Picture not supported.');
       }
     } catch (err) {
       console.error(err);
@@ -435,27 +406,20 @@ export default function OneTapFormCopilotPage() {
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-              🎙️ Voice &amp; Touch Form Co-Pilot
+              🎙️ Voice &amp; Touch Form Co-Pilot + Custom Fields
             </h1>
             <p className="text-[11px] text-slate-400">
-              Bolo ya Touch karo — Floating card par turant exact details dikhengi!
+              Bolo ya Touch karo — Floating card par exact details aur custom fields dikhengi!
             </p>
           </div>
 
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={loadSampleData}
-              className="px-3 py-1.5 bg-slate-900 border border-amber-500/40 text-amber-300 font-bold text-xs rounded-xl"
-            >
-              ✨ Load Sample Data
-            </button>
-            <button
-              type="button"
               onClick={() => setActiveTab(activeTab === 'mobile-pip' ? 'vault-editor' : 'mobile-pip')}
-              className="px-3 py-1.5 bg-blue-600 text-white font-bold text-xs rounded-xl"
+              className="px-3.5 py-1.5 bg-blue-600 text-white font-bold text-xs rounded-xl shadow"
             >
-              {activeTab === 'mobile-pip' ? '✏️ Edit Profile' : '📱 Open Co-Pilot'}
+              {activeTab === 'mobile-pip' ? '✏️ Edit Profile & Add Custom Fields' : '📱 Open Co-Pilot'}
             </button>
           </div>
         </div>
@@ -496,14 +460,14 @@ export default function OneTapFormCopilotPage() {
               </div>
             </div>
 
-            {/* Instant Touch Buttons (Guaranteed 100% Reliable Backup) */}
+            {/* Instant Touch Buttons (Standard + Custom Fields) */}
             <div className="lg:col-span-5 space-y-4 text-xs">
               <div className="bg-slate-900 p-5 rounded-3xl border border-slate-800 space-y-3">
                 <h3 className="text-sm font-black text-amber-400 uppercase">
                   👆 Instant Touch Buttons (1-Tap Zoom):
                 </h3>
                 <p className="text-slate-400 text-[11px]">
-                  Agar mic background noise ki wajah se catch na kare, toh niche diye gaye button par click karein—floating card turant wahi field bade font mein dikha dega:
+                  Standard aur aapke add kiye gaye custom fields yahan instant access ke liye hain:
                 </p>
 
                 <div className="grid grid-cols-2 gap-2">
@@ -527,81 +491,160 @@ export default function OneTapFormCopilotPage() {
                     </button>
                   ))}
                 </div>
+
+                {/* Custom Fields Quick Touch Buttons */}
+                {profile.customFields.length > 0 && (
+                  <div className="pt-2 space-y-2 border-t border-slate-800">
+                    <span className="text-[11px] font-bold text-cyan-400 block uppercase">➕ Your Custom Vault Fields:</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {profile.customFields.map((cf) => (
+                        <button
+                          key={cf.id}
+                          type="button"
+                          onClick={() => setHighlightField(cf.id)}
+                          className="p-2.5 bg-cyan-950/40 hover:bg-cyan-900/40 border border-cyan-500/40 text-cyan-200 rounded-xl font-bold truncate transition"
+                        >
+                          📌 {cf.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
 
         {activeTab === 'vault-editor' && (
-          <div className="bg-slate-900 p-5 rounded-3xl border border-slate-800 space-y-4 text-xs">
-            <h2 className="text-sm font-black text-amber-400 uppercase border-b border-slate-800 pb-2">
-              ✏️ Profile Details Editor
-            </h2>
+          <div className="space-y-6 text-xs">
+            <div className="bg-slate-900 p-5 rounded-3xl border border-slate-800 space-y-4">
+              <h2 className="text-sm font-black text-amber-400 uppercase border-b border-slate-800 pb-2">
+                ✏️ Profile Details Editor
+              </h2>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-slate-400 mb-1 font-bold">Full Name</label>
-                <input
-                  type="text"
-                  value={profile.fullName}
-                  onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
-                  className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-slate-400 mb-1 font-bold">Full Name</label>
+                  <input
+                    type="text"
+                    value={profile.fullName}
+                    onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
+                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold uppercase"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 mb-1 font-bold">Father&apos;s Name</label>
+                  <input
+                    type="text"
+                    value={profile.fatherName}
+                    onChange={(e) => setProfile({ ...profile, fatherName: e.target.value })}
+                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold uppercase"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 mb-1 font-bold">Date of Birth</label>
+                  <input
+                    type="date"
+                    value={profile.dob}
+                    onChange={(e) => setProfile({ ...profile, dob: e.target.value })}
+                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-amber-300 font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-amber-400 mb-1 font-bold">10th Roll Number</label>
+                  <input
+                    type="text"
+                    value={profile.academics[0]?.rollNumber || ''}
+                    onChange={(e) => {
+                      const up = [...profile.academics];
+                      up[0].rollNumber = e.target.value;
+                      setProfile({ ...profile, academics: up });
+                    }}
+                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-fuchsia-400 mb-1 font-bold">Bank Account Number</label>
+                  <input
+                    type="text"
+                    value={profile.bankAccountNo}
+                    onChange={(e) => setProfile({ ...profile, bankAccountNo: e.target.value })}
+                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 mb-1 font-bold">Mobile Number</label>
+                  <input
+                    type="tel"
+                    value={profile.mobile}
+                    onChange={(e) => setProfile({ ...profile, mobile: e.target.value })}
+                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* CUSTOM FIELDS MANAGER SECTION */}
+            <div className="bg-slate-900 p-5 rounded-3xl border border-slate-800 space-y-4">
+              <h2 className="text-sm font-black text-cyan-400 uppercase border-b border-slate-800 pb-2">
+                ➕ Custom Fields Manager (Add Any Extra Form Field)
+              </h2>
+
+              <div className="space-y-2">
+                {profile.customFields.map((cf) => (
+                  <div key={cf.id} className="flex items-center gap-3 p-3 bg-slate-950 rounded-xl border border-slate-800">
+                    <span className="w-1/3 text-slate-400 font-bold uppercase truncate">{cf.label}</span>
+                    <input
+                      type="text"
+                      value={cf.value}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setProfile({
+                          ...profile,
+                          customFields: profile.customFields.map((f) => (f.id === cf.id ? { ...f, value: val } : f)),
+                        });
+                      }}
+                      className="w-1/2 p-2 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono"
+                      placeholder={`Enter ${cf.label}...`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCustomField(cf.id)}
+                      className="px-3 py-2 bg-rose-600/20 text-rose-400 hover:bg-rose-600 hover:text-white rounded-lg font-bold"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
               </div>
 
-              <div>
-                <label className="block text-slate-400 mb-1 font-bold">Father&apos;s Name</label>
-                <input
-                  type="text"
-                  value={profile.fatherName}
-                  onChange={(e) => setProfile({ ...profile, fatherName: e.target.value })}
-                  className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 mb-1 font-bold">Date of Birth</label>
-                <input
-                  type="date"
-                  value={profile.dob}
-                  onChange={(e) => setProfile({ ...profile, dob: e.target.value })}
-                  className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-amber-300 font-bold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-amber-400 mb-1 font-bold">10th Roll Number</label>
-                <input
-                  type="text"
-                  value={profile.academics[0]?.rollNumber || ''}
-                  onChange={(e) => {
-                    const up = [...profile.academics];
-                    up[0].rollNumber = e.target.value;
-                    setProfile({ ...profile, academics: up });
-                  }}
-                  className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-fuchsia-400 mb-1 font-bold">Bank Account Number</label>
-                <input
-                  type="text"
-                  value={profile.bankAccountNo}
-                  onChange={(e) => setProfile({ ...profile, bankAccountNo: e.target.value })}
-                  className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 mb-1 font-bold">Mobile Number</label>
-                <input
-                  type="tel"
-                  value={profile.mobile}
-                  onChange={(e) => setProfile({ ...profile, mobile: e.target.value })}
-                  className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
-                />
-              </div>
+              <form onSubmit={handleAddCustomField} className="p-4 bg-slate-950 rounded-2xl border border-dashed border-slate-700 space-y-3">
+                <div className="font-bold text-slate-300">Add New Custom Field:</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <input
+                    type="text"
+                    value={newLabel}
+                    onChange={(e) => setNewLabel(e.target.value)}
+                    placeholder="Field Name (e.g. DRIVING LICENSE NO)"
+                    className="p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white uppercase font-bold"
+                  />
+                  <input
+                    type="text"
+                    value={newValue}
+                    onChange={(e) => setNewValue(e.target.value)}
+                    placeholder="Field Value (e.g. DL-142026...)"
+                    className="p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono"
+                  />
+                </div>
+                <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl">
+                  + Add Custom Field to Vault
+                </button>
+              </form>
             </div>
 
             <div className="flex justify-end pt-2">
@@ -611,9 +654,9 @@ export default function OneTapFormCopilotPage() {
                   saveProfile(profile);
                   setActiveTab('mobile-pip');
                 }}
-                className="px-6 py-2.5 bg-emerald-500 text-slate-950 font-black rounded-xl"
+                className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-cyan-400 text-slate-950 font-black rounded-2xl shadow-xl text-sm"
               >
-                💾 Save Details →
+                💾 Save Vault &amp; Launch Co-Pilot →
               </button>
             </div>
           </div>
