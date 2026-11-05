@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import Link from 'next/link';
 
 interface AcademicRow {
   level: string;
@@ -41,7 +40,7 @@ interface StudentProfile {
 
 const DEFAULT_PROFILE: StudentProfile = {
   idNumber: '',
-  idType: 'Aadhaar / Photo ID',
+  idType: 'Photo ID / PAN Card',
   fullName: '',
   fatherName: '',
   motherName: '',
@@ -105,8 +104,14 @@ export default function OneTapFormCopilotPage() {
   const [lastVoiceCommand, setLastVoiceCommand] = useState<string>('Ready! Click Mic or Touch Buttons below...');
   const [highlightField, setHighlightField] = useState<string>('ALL');
 
+  // Custom Field states
   const [newLabel, setNewLabel] = useState<string>('');
   const [newValue, setNewValue] = useState<string>('');
+
+  // AI Scanner states
+  const [isScanning, setIsScanning] = useState<boolean>(false);
+  const [scanStatus, setScanStatus] = useState<string>('');
+  const [userApiKey, setUserApiKey] = useState<string>('');
 
   const pipCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const pipVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -121,12 +126,86 @@ export default function OneTapFormCopilotPage() {
         console.error(e);
       }
     }
+    const savedKey = localStorage.getItem('careersathi_gemini_key');
+    if (savedKey) setUserApiKey(savedKey);
   }, []);
 
   const saveProfile = (nextProfile: StudentProfile = profile) => {
     setProfile(nextProfile);
     localStorage.setItem('careersathi_student_voice_vault_v4', JSON.stringify(nextProfile));
     alert('✅ Profile & Custom Fields Saved in Browser Storage!');
+  };
+
+  // AI Document Upload & Extraction Handler
+  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsScanning(true);
+    setScanStatus('⏳ AI Document padh raha hai (Extracting Name, DOB, Roll No)...');
+
+    try {
+      if (userApiKey.trim()) {
+        localStorage.setItem('careersathi_gemini_key', userApiKey.trim());
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64String = (reader.result as string).split(',')[1];
+        const res = await fetch('/api/extract-document', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            imageBase64: base64String,
+            mimeType: file.type,
+            customApiKey: userApiKey.trim(),
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.extracted) {
+          setScanStatus(`❌ Error: ${data.error || 'Could not extract data'}`);
+          setIsScanning(false);
+          return;
+        }
+
+        const ext = data.extracted;
+        const updatedAcademics = [...profile.academics];
+        updatedAcademics[0] = {
+          ...updatedAcademics[0],
+          rollNumber: ext.rollNumber || updatedAcademics[0].rollNumber,
+          rollCode: ext.rollCode || updatedAcademics[0].rollCode,
+          passingYear: ext.passingYear || updatedAcademics[0].passingYear,
+          boardOrUniv: ext.boardOrUniv || updatedAcademics[0].boardOrUniv,
+          percentageOrCgpa: ext.percentageOrCgpa || updatedAcademics[0].percentageOrCgpa,
+        };
+
+        const updatedProfile: StudentProfile = {
+          ...profile,
+          fullName: cleanSscName(ext.fullName || profile.fullName),
+          fatherName: cleanSscName(ext.fatherName || profile.fatherName),
+          motherName: cleanSscName(ext.motherName || profile.motherName),
+          dob: ext.dob || profile.dob,
+          academics: updatedAcademics,
+        };
+
+        setProfile(updatedProfile);
+        localStorage.setItem('careersathi_student_voice_vault_v4', JSON.stringify(updatedProfile));
+        setScanStatus('✅ AI ne Marksheet se saara data Vault mein auto-fill kar diya!');
+        setIsScanning(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      setScanStatus(`❌ Failed: ${err.message}`);
+      setIsScanning(false);
+    }
+  };
+
+  // Copy Profile JSON for Chrome Extension
+  const copyExtensionPayload = () => {
+    const payload = JSON.stringify(profile);
+    navigator.clipboard.writeText(payload);
+    alert('🧩 Profile Data Copied! Ab Chrome Extension khol kar "Paste & Auto-Fill" dabayein.');
   };
 
   const handleAddCustomField = (e: React.FormEvent) => {
@@ -142,6 +221,7 @@ export default function OneTapFormCopilotPage() {
       customFields: [...profile.customFields, item],
     };
     setProfile(updated);
+    localStorage.setItem('careersathi_student_voice_vault_v4', JSON.stringify(updated));
     setNewLabel('');
     setNewValue('');
   };
@@ -152,6 +232,7 @@ export default function OneTapFormCopilotPage() {
       customFields: profile.customFields.filter((f) => f.id !== id),
     };
     setProfile(updated);
+    localStorage.setItem('careersathi_student_voice_vault_v4', JSON.stringify(updated));
   };
 
   const formattedData = useMemo(() => {
@@ -204,7 +285,7 @@ export default function OneTapFormCopilotPage() {
 
       ctx.fillStyle = '#34d399';
       ctx.font = 'bold 16px system-ui, sans-serif';
-      ctx.fillText('🎙️ CAREERSATHI VOICE & TOUCH CO-PILOT', 20, 30);
+      ctx.fillText('🎙️ CAREERSATHI AI VOICE & TOUCH CO-PILOT', 20, 30);
 
       ctx.fillStyle = '#cbd5e1';
       ctx.font = 'bold 13px system-ui, sans-serif';
@@ -223,11 +304,10 @@ export default function OneTapFormCopilotPage() {
       } else if (targetField === 'BANK') {
         drawBigCard(ctx, `BANK: ${profile.bankName.toUpperCase()}`, `A/C: ${profile.bankAccountNo || 'NOT SET'}`, '#facc15', `IFSC: ${profile.bankIfsc || 'NOT SET'}`);
       } else if (targetField === 'ID') {
-        drawBigCard(ctx, profile.idType.toUpperCase(), profile.idNumber || 'NOT SET', '#38bdf8', 'Double-check 12 digits');
+        drawBigCard(ctx, profile.idType.toUpperCase(), profile.idNumber || 'NOT SET', '#38bdf8', 'Verify Photo ID Number');
       } else if (targetField === 'MOBILE') {
         drawBigCard(ctx, 'MOBILE NUMBER', profile.mobile || 'NOT SET', '#4ade80', `Email: ${profile.email}`);
       } else {
-        // Check if targetField matches any custom field id
         const matchedCustom = profile.customFields.find((cf) => cf.id === targetField);
         if (matchedCustom) {
           drawBigCard(ctx, matchedCustom.label, matchedCustom.value || 'NOT SET', '#06b6d4', 'Custom Vault Field');
@@ -332,12 +412,11 @@ export default function OneTapFormCopilotPage() {
         setHighlightField('ROLL');
       } else if (transcript.includes('bank') || transcript.includes('account')) {
         setHighlightField('BANK');
-      } else if (transcript.includes('aadhar') || transcript.includes('id')) {
+      } else if (transcript.includes('id') || transcript.includes('card') || transcript.includes('pan')) {
         setHighlightField('ID');
       } else if (transcript.includes('mobile') || transcript.includes('phone')) {
         setHighlightField('MOBILE');
       } else {
-        // Check custom field keywords
         const foundCustom = profile.customFields.find((cf) => transcript.includes(cf.label.toLowerCase()));
         if (foundCustom) {
           setHighlightField(foundCustom.id);
@@ -402,26 +481,75 @@ export default function OneTapFormCopilotPage() {
     <div className="min-h-screen bg-slate-950 text-slate-100 p-3 sm:p-6 font-sans">
       <video ref={pipVideoRef} muted playsInline className="w-1 h-1 opacity-0 pointer-events-none fixed -bottom-10" />
 
+      {/* Hidden container so Chrome Extension can also read profile directly from DOM */}
+      <div id="careersathi-vault-json" className="hidden" data-vault={JSON.stringify(profile)} />
+
       <div className="max-w-6xl mx-auto space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-              🎙️ Voice &amp; Touch Form Co-Pilot + Custom Fields
+              🤖 CareerSathi AI Form Co-Pilot &amp; Extension Hub
             </h1>
             <p className="text-[11px] text-slate-400">
-              Bolo ya Touch karo — Floating card par exact details aur custom fields dikhengi!
+              Upload Marksheet ➔ AI Auto-Builds Vault ➔ Fill Forms via Chrome Extension or Floating PiP!
             </p>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={copyExtensionPayload}
+              className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl shadow"
+            >
+              🧩 Copy Vault for Chrome Extension
+            </button>
             <button
               type="button"
               onClick={() => setActiveTab(activeTab === 'mobile-pip' ? 'vault-editor' : 'mobile-pip')}
               className="px-3.5 py-1.5 bg-blue-600 text-white font-bold text-xs rounded-xl shadow"
             >
-              {activeTab === 'mobile-pip' ? '✏️ Edit Profile & Add Custom Fields' : '📱 Open Co-Pilot'}
+              {activeTab === 'mobile-pip' ? '✏️ Edit Profile & Custom Fields' : '📱 Open Co-Pilot'}
             </button>
           </div>
+        </div>
+
+        {/* AI DOCUMENT SCANNER BANNER */}
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950/60 to-slate-900 p-4 sm:p-5 rounded-3xl border border-indigo-500/40 space-y-3 text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <span className="text-[10px] bg-indigo-500 text-white px-2.5 py-0.5 rounded-full font-black uppercase">
+                ✨ Step 1: AI Marksheet &amp; ID Scanner
+              </span>
+              <h2 className="text-sm font-black text-white mt-1">
+                Apni 10th Marksheet ya ID Upload karein — AI khud Profile bana dega!
+              </h2>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="password"
+                value={userApiKey}
+                onChange={(e) => setUserApiKey(e.target.value)}
+                placeholder="Optional: Gemini API Key"
+                className="p-2 bg-slate-950 border border-slate-700 rounded-xl text-[11px] text-white w-44"
+              />
+              <label className="cursor-pointer px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl shadow inline-flex items-center gap-2">
+                <span>{isScanning ? '⏳ Scanning...' : '📄 Upload Marksheet Photo'}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleDocumentUpload}
+                  disabled={isScanning}
+                  className="hidden"
+                />
+              </label>
+            </div>
+          </div>
+          {scanStatus && (
+            <div className="p-2.5 bg-slate-950/90 border border-indigo-500/30 rounded-xl text-indigo-300 font-bold">
+              {scanStatus}
+            </div>
+          )}
         </div>
 
         {activeTab === 'mobile-pip' && (
@@ -460,26 +588,22 @@ export default function OneTapFormCopilotPage() {
               </div>
             </div>
 
-            {/* Instant Touch Buttons (Standard + Custom Fields) */}
             <div className="lg:col-span-5 space-y-4 text-xs">
               <div className="bg-slate-900 p-5 rounded-3xl border border-slate-800 space-y-3">
                 <h3 className="text-sm font-black text-amber-400 uppercase">
                   👆 Instant Touch Buttons (1-Tap Zoom):
                 </h3>
-                <p className="text-slate-400 text-[11px]">
-                  Standard aur aapke add kiye gaye custom fields yahan instant access ke liye hain:
-                </p>
-
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { label: '👤 Name', key: 'NAME', bg: 'bg-emerald-600/20 border-emerald-500/50 text-emerald-300' },
                     { label: "👨‍👦 Father's Name", key: 'FATHER', bg: 'bg-blue-600/20 border-blue-500/50 text-blue-300' },
+                    { label: "👩‍👦 Mother's Name", key: 'MOTHER', bg: 'bg-yellow-600/20 border-yellow-500/50 text-yellow-300' },
                     { label: '📅 Date of Birth', key: 'DOB', bg: 'bg-rose-600/20 border-rose-500/50 text-rose-300' },
                     { label: '🎓 10th Roll No', key: 'ROLL', bg: 'bg-amber-600/20 border-amber-500/50 text-amber-300' },
-                    { label: '💳 Aadhaar / ID', key: 'ID', bg: 'bg-cyan-600/20 border-cyan-500/50 text-cyan-300' },
+                    { label: '💳 Photo ID / PAN', key: 'ID', bg: 'bg-cyan-600/20 border-cyan-500/50 text-cyan-300' },
                     { label: '🏦 Bank A/C & IFSC', key: 'BANK', bg: 'bg-fuchsia-600/20 border-fuchsia-500/50 text-fuchsia-300' },
                     { label: '📱 Mobile Number', key: 'MOBILE', bg: 'bg-teal-600/20 border-teal-500/50 text-teal-300' },
-                    { label: '🔄 Show All Overview', key: 'ALL', bg: 'bg-slate-800 border-slate-700 text-white' },
+                    { label: '🔄 Show All Overview', key: 'ALL', bg: 'bg-slate-800 border-slate-700 text-white col-span-2' },
                   ].map((btn) => (
                     <button
                       key={btn.key}
@@ -492,7 +616,6 @@ export default function OneTapFormCopilotPage() {
                   ))}
                 </div>
 
-                {/* Custom Fields Quick Touch Buttons */}
                 {profile.customFields.length > 0 && (
                   <div className="pt-2 space-y-2 border-t border-slate-800">
                     <span className="text-[11px] font-bold text-cyan-400 block uppercase">➕ Your Custom Vault Fields:</span>
@@ -524,7 +647,7 @@ export default function OneTapFormCopilotPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-slate-400 mb-1 font-bold">Full Name</label>
+                  <label className="block text-slate-400 mb-1 font-bold">Full Name (As per 10th)</label>
                   <input
                     type="text"
                     value={profile.fullName}
@@ -539,6 +662,16 @@ export default function OneTapFormCopilotPage() {
                     type="text"
                     value={profile.fatherName}
                     onChange={(e) => setProfile({ ...profile, fatherName: e.target.value })}
+                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold uppercase"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 mb-1 font-bold">Mother&apos;s Name</label>
+                  <input
+                    type="text"
+                    value={profile.motherName}
+                    onChange={(e) => setProfile({ ...profile, motherName: e.target.value })}
                     className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold uppercase"
                   />
                 </div>
@@ -568,6 +701,34 @@ export default function OneTapFormCopilotPage() {
                 </div>
 
                 <div>
+                  <label className="block text-amber-400 mb-1 font-bold">10th Roll Code (Optional)</label>
+                  <input
+                    type="text"
+                    value={profile.academics[0]?.rollCode || ''}
+                    onChange={(e) => {
+                      const up = [...profile.academics];
+                      up[0].rollCode = e.target.value;
+                      setProfile({ ...profile, academics: up });
+                    }}
+                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-emerald-400 mb-1 font-bold">10th Passing Year</label>
+                  <input
+                    type="text"
+                    value={profile.academics[0]?.passingYear || ''}
+                    onChange={(e) => {
+                      const up = [...profile.academics];
+                      up[0].passingYear = e.target.value;
+                      setProfile({ ...profile, academics: up });
+                    }}
+                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
+                  />
+                </div>
+
+                <div>
                   <label className="block text-fuchsia-400 mb-1 font-bold">Bank Account Number</label>
                   <input
                     type="text"
@@ -586,10 +747,29 @@ export default function OneTapFormCopilotPage() {
                     className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-slate-400 mb-1 font-bold">Email ID</label>
+                  <input
+                    type="email"
+                    value={profile.email}
+                    onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 mb-1 font-bold">PIN Code</label>
+                  <input
+                    type="text"
+                    value={profile.pincode}
+                    onChange={(e) => setProfile({ ...profile, pincode: e.target.value })}
+                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* CUSTOM FIELDS MANAGER SECTION */}
             <div className="bg-slate-900 p-5 rounded-3xl border border-slate-800 space-y-4">
               <h2 className="text-sm font-black text-cyan-400 uppercase border-b border-slate-800 pb-2">
                 ➕ Custom Fields Manager (Add Any Extra Form Field)
@@ -610,7 +790,6 @@ export default function OneTapFormCopilotPage() {
                         });
                       }}
                       className="w-1/2 p-2 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono"
-                      placeholder={`Enter ${cf.label}...`}
                     />
                     <button
                       type="button"
