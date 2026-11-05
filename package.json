@@ -24,7 +24,7 @@
     "pdf-lib": "^1.17.1",
     "jszip": "^3.10.1",
     "pdfjs-dist": "^3.11.174",
-    "@imgly/background-removal": "^1.4.5",
+    "@huggingface/transformers": "^3.4.0",
     "sharp": "^0.33.4"
   }
 }
