@@ -101,7 +101,7 @@ const DEFAULT_PROFILE: StudentProfile = {
   signatureDataUrl: '',
 };
 
-type ActiveTab = 'vault-editor' | 'copilot-board' | 'floating-injector' | 'otr-print';
+type ActiveTab = 'vault-editor' | 'cheat-sheet' | 'otr-print';
 
 export default function OneTapFormCopilotPage() {
   const [profile, setProfile] = useState<StudentProfile>(DEFAULT_PROFILE);
@@ -125,7 +125,7 @@ export default function OneTapFormCopilotPage() {
   const saveProfileToVault = (updated: StudentProfile = profile) => {
     setProfile(updated);
     localStorage.setItem('careersathi_student_otr_vault', JSON.stringify(updated));
-    setSaveBanner('✅ Profile saved in Browser Vault!');
+    setSaveBanner('✅ Profile saved securely!');
     setTimeout(() => setSaveBanner(''), 3000);
   };
 
@@ -236,58 +236,6 @@ export default function OneTapFormCopilotPage() {
     return `${years} Years, ${months} Months, ${days} Days`;
   }, [profile.dob, ageCutoffDate]);
 
-  // Floating Injector Widget Code (Copy & Run in Console on SSC Portal)
-  const floatingInjectorSnippet = useMemo(() => {
-    const payload = {
-      fullName: profile.fullName.toUpperCase(),
-      firstName: splitNameParts.first.toUpperCase(),
-      middleName: splitNameParts.middle.toUpperCase(),
-      lastName: splitNameParts.last.toUpperCase(),
-      fatherName: profile.fatherName.toUpperCase(),
-      motherName: profile.motherName.toUpperCase(),
-      dobSlash: formattedDob.ddmmyyyySlash,
-      mobile: profile.mobile,
-      email: profile.email,
-      pincode: profile.pincode,
-      address1: profile.addressLine1,
-      district: profile.domicileDistrict,
-      roll10: profile.academics[0]?.rollNumber || '',
-      year10: profile.academics[0]?.passingYear || '',
-      casteCert: profile.casteCertNumber,
-    };
-
-    const code = `(function(){
-      var d=${JSON.stringify(payload)};
-      if(document.getElementById('cs-float-box'))return;
-      var box=document.createElement('div');
-      box.id='cs-float-box';
-      box.style.cssText='position:fixed;bottom:20px;right:20px;z-index:999999;background:#0f172a;color:#fff;padding:16px;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,0.5);border:2px solid #10b981;font-family:sans-serif;width:280px;font-size:12px;';
-      box.innerHTML='<div style="font-weight:900;color:#34d399;margin-bottom:8px;display:flex;justify-content:space-between;"><span>⚡ CareerSathi Co-Pilot</span><span id="cs-close" style="cursor:pointer;color:#f43f5e;">✕</span></div>'+
-      '<div style="margin-bottom:8px;color:#94a3b8;font-size:10px;">Click any field below to auto-fill active input:</div>'+
-      '<button id="btn-name" style="width:100%;background:#2563eb;color:#fff;border:none;padding:6px;border-radius:6px;margin-bottom:4px;cursor:pointer;font-weight:bold;">Fill Name: '+d.fullName+'</button>'+
-      '<button id="btn-father" style="width:100%;background:#2563eb;color:#fff;border:none;padding:6px;border-radius:6px;margin-bottom:4px;cursor:pointer;font-weight:bold;">Fill Father Name</button>'+
-      '<button id="btn-dob" style="width:100%;background:#2563eb;color:#fff;border:none;padding:6px;border-radius:6px;margin-bottom:4px;cursor:pointer;font-weight:bold;">Fill DOB: '+d.dobSlash+'</button>'+
-      '<button id="btn-roll10" style="width:100%;background:#2563eb;color:#fff;border:none;padding:6px;border-radius:6px;cursor:pointer;font-weight:bold;">Fill 10th Roll: '+d.roll10+'</button>';
-      document.body.appendChild(box);
-      document.getElementById('cs-close').onclick=function(){box.remove();};
-      function inject(val){
-        var el=document.activeElement;
-        if(el && (el.tagName==='INPUT'||el.tagName==='TEXTAREA')){
-          var setter=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value')?.set;
-          if(setter){setter.call(el,val);}else{el.value=val;}
-          el.dispatchEvent(new Event('input',{bubbles:true}));
-          el.dispatchEvent(new Event('change',{bubbles:true}));
-          el.style.borderColor='#10b981';
-        }else{alert('Pehle SSC form ke kisi box par click karein!');}
-      }
-      document.getElementById('btn-name').onclick=function(){inject(d.fullName);};
-      document.getElementById('btn-father').onclick=function(){inject(d.fatherName);};
-      document.getElementById('btn-dob').onclick=function(){inject(d.dobSlash);};
-      document.getElementById('btn-roll10').onclick=function(){inject(d.roll10);};
-    })();`;
-    return code;
-  }, [profile, splitNameParts, formattedDob]);
-
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-6 font-sans">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -302,44 +250,41 @@ export default function OneTapFormCopilotPage() {
             </Link>
             <div>
               <h1 className="text-xl md:text-2xl font-black text-white flex items-center gap-2">
-                ⚡ 1-Tap Exam Form Co-Pilot &amp; Student OTR Vault
+                ⚡ Exam Form Co-Pilot &amp; Smart Cheat Sheet
               </h1>
               <p className="text-[11px] text-slate-400">
-                Save your OTR details once &amp; fill SSC, IBPS, and Railway forms without typing errors!
+                Save your OTR details once &amp; use the Floating Cheat Sheet while filling SSC &amp; Banking forms!
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <button
-              type="button"
-              onClick={handleLoadDemoProfile}
-              className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-amber-300 font-bold rounded-xl"
-            >
-              ✨ Load Sample Profile
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleLoadDemoProfile}
+            className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-amber-300 font-bold text-xs rounded-xl"
+          >
+            ✨ Load Sample Profile
+          </button>
         </div>
 
-        {/* 4 Navigation Tabs */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
+        {/* Navigation Tabs */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
           {[
-            { id: 'vault-editor', title: '1. 🪪 Student OTR Profile Vault' },
-            { id: 'copilot-board', title: '2. 📋 1-Tap Copy Board' },
-            { id: 'floating-injector', title: '3. 🪄 Floating Co-Pilot Widget (Best for SSC)' },
-            { id: 'otr-print', title: '4. 🖨️ Printable OTR Master Card' },
+            { id: 'vault-editor', title: '1. 🪪 OTR Profile Vault' },
+            { id: 'cheat-sheet', title: '2. 📋 Floating Smart Cheat Sheet (For SSC)' },
+            { id: 'otr-print', title: '3. 🖨️ Printable OTR Master Sheet' },
           ].map((tab) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id as ActiveTab)}
-              className={`p-3.5 rounded-2xl border text-left transition ${
+              className={`p-3.5 rounded-2xl border text-left font-black transition ${
                 activeTab === tab.id
                   ? 'bg-blue-600 border-blue-400 text-white shadow-lg'
                   : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700'
               }`}
             >
-              <div className="font-black text-xs md:text-sm">{tab.title}</div>
+              {tab.title}
             </button>
           ))}
         </div>
@@ -482,42 +427,65 @@ export default function OneTapFormCopilotPage() {
                 type="button"
                 onClick={() => {
                   saveProfileToVault(profile);
-                  setActiveTab('floating-injector');
+                  setActiveTab('cheat-sheet');
                 }}
                 className="px-8 py-3.5 bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 font-black rounded-xl shadow-xl"
               >
-                Save &amp; Get Floating Co-Pilot →
+                Save &amp; Open Floating Cheat Sheet →
               </button>
             </div>
           </div>
         )}
 
-        {/* TAB 2: COPY BOARD */}
-        {activeTab === 'copilot-board' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-            <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-3">
-              <div className="font-black text-cyan-400 uppercase text-[11px] border-b border-slate-800 pb-1">
-                👤 Candidate Name &amp; DOB
-              </div>
+        {/* TAB 2: SMART CHEAT SHEET (THE BEST SOLUTION FOR SSC FORMS) */}
+        {activeTab === 'cheat-sheet' && (
+          <div className="bg-slate-900 p-6 rounded-2xl border border-amber-500/50 space-y-6 text-xs">
+            <div className="space-y-2">
+              <span className="text-[10px] bg-amber-500 text-slate-950 font-black px-2.5 py-0.5 rounded uppercase">
+                100% Secure &amp; Zero Friction
+              </span>
+              <h2 className="text-xl font-black text-white">
+                📋 Smart Cheat Sheet &amp; Split-Screen Guide
+              </h2>
+              <p className="text-slate-400 leading-relaxed max-w-3xl">
+                Kyunki sarkari portals par paste karne ki permission nahi hoti, sabse asan tareeqa yeh hai ki aap apni screen ko split karein ya is card ko saamne rakhein. Har field ke samne **1-Tap Copy** button hai jisse aap turant clipboard par le sakte hain!
+              </p>
+            </div>
+
+            {/* Interactive Cheat Sheet Box */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[
-                { label: 'Full Name', val: profile.fullName.toUpperCase(), key: 'fn' },
+                { label: 'Candidate Full Name', val: profile.fullName.toUpperCase(), key: 'fn' },
                 { label: 'First Name', val: splitNameParts.first.toUpperCase(), key: 'f1' },
                 { label: 'Last Name', val: splitNameParts.last.toUpperCase(), key: 'f3' },
-                { label: 'Father Name', val: profile.fatherName.toUpperCase(), key: 'fa' },
-                { label: 'DOB (DD/MM/YYYY)', val: formattedDob.ddmmyyyySlash, key: 'dob1' },
-              ].map((item) => (
+                { label: "Father's Name", val: profile.fatherName.toUpperCase(), key: 'fa' },
+                { label: "Mother's Name", val: profile.motherName.toUpperCase(), key: 'mo' },
+                { label: 'Date of Birth (DD/MM/YYYY)', val: formattedDob.ddmmyyyySlash, key: 'dob' },
+                { label: 'Mobile Number', val: profile.mobile, key: 'mob' },
+                { label: 'Email Address', val: profile.email, key: 'eml' },
+                { label: 'PIN Code', val: profile.pincode, key: 'pin' },
+                { label: '10th Board Name', val: profile.academics[0]?.boardOrUniv, key: 'b10' },
+                { label: '10th Roll Number', val: profile.academics[0]?.rollNumber, key: 'r10' },
+                { label: '10th Passing Year', val: profile.academics[0]?.passingYear, key: 'y10' },
+                { label: '10th Percentage %', val: profile.academics[0]?.percentageOrCgpa, key: 'p10' },
+                { label: 'Caste Certificate No.', val: profile.casteCertNumber, key: 'cst' },
+              ].map((item, i) => (
                 <div
-                  key={item.key}
-                  className="flex items-center justify-between p-2 bg-slate-950 rounded-xl border border-slate-800"
+                  key={i}
+                  className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between gap-2"
                 >
-                  <div>
+                  <div className="truncate pr-2">
                     <div className="text-[10px] text-slate-400">{item.label}</div>
-                    <div className="font-bold text-white">{item.val || '—'}</div>
+                    <div className="font-bold text-white font-mono truncate">{item.val || '—'}</div>
                   </div>
                   <button
                     type="button"
-                    onClick={() => copyText(item.val, item.key)}
-                    className="px-3 py-1.5 bg-slate-800 hover:bg-blue-600 text-white rounded-lg font-bold"
+                    onClick={() => copyText(item.val || '', item.key)}
+                    className={`px-3 py-1.5 rounded-lg font-black shrink-0 transition ${
+                      copiedKey === item.key
+                        ? 'bg-emerald-500 text-slate-950'
+                        : 'bg-slate-800 hover:bg-blue-600 text-slate-200'
+                    }`}
                   >
                     {copiedKey === item.key ? '✓ Copied' : 'Copy'}
                   </button>
@@ -525,75 +493,13 @@ export default function OneTapFormCopilotPage() {
               ))}
             </div>
 
-            <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-3">
-              <div className="font-black text-amber-400 uppercase text-[11px] border-b border-slate-800 pb-1">
-                🎓 Academic Roll Numbers
-              </div>
-              {profile.academics.map((ac, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800"
-                >
-                  <div>
-                    <div className="text-[10px] text-amber-300 font-bold">{ac.level}</div>
-                    <div className="font-mono text-white">Roll: {ac.rollNumber || 'N/A'}</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => copyText(ac.rollNumber, `r-${idx}`)}
-                    className="px-3 py-1.5 bg-slate-800 hover:bg-blue-600 text-white rounded-lg font-bold"
-                  >
-                    {copiedKey === `r-${idx}` ? '✓ Copied' : 'Copy Roll'}
-                  </button>
-                </div>
-              ))}
+            <div className="p-4 bg-amber-500/10 border border-amber-500/40 rounded-xl text-amber-200 text-xs">
+              💡 <strong>Pro Tip:</strong> Apne browser window ko chhota karke aadhi screen par SSC ka form kholein aur aadhi screen par CareerSathi ka yeh Cheat Sheet rakhein. Saari details bina tab switch kiye ek hi nazar mein samne dikhengi!
             </div>
           </div>
         )}
 
-        {/* TAB 3: FLOATING CO-PILOT WIDGET (THE ULTIMATE SSC SOLUTION) */}
-        {activeTab === 'floating-injector' && (
-          <div className="bg-slate-900 p-6 rounded-2xl border border-amber-500/40 space-y-6 text-xs">
-            <div className="space-y-2">
-              <span className="text-[10px] bg-amber-500 text-slate-950 font-black px-2.5 py-0.5 rounded uppercase">
-                🚀 Ultimate Cyber-Cafe Bypass Tool
-              </span>
-              <h2 className="text-xl font-black text-white">
-                🪄 Floating Co-Pilot Widget (1-Click Fill on SSC Portal)
-              </h2>
-              <p className="text-slate-400 leading-relaxed max-w-3xl">
-                Kyunki SSC portal par paste block hota hai aur bookmarklet kabhi-kabhi fail ho jata hai, humne ek **Smart Floating Widget** banaya hai. Yeh widget SSC ke page par ek chhote floating box ki tarah dikhega aur bina keyboard type kiye 1 click mein box bhar dega!
-              </p>
-            </div>
-
-            <div className="p-6 bg-slate-950 rounded-2xl border-2 border-dashed border-amber-500/60 space-y-4">
-              <div className="font-bold text-amber-300">
-                Step 1: Niche diye gaye code ko Copy karein:
-              </div>
-              <textarea
-                readOnly
-                rows={4}
-                value={floatingInjectorSnippet}
-                className="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-cyan-300 font-mono text-[11px]"
-              />
-
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => copyText(floatingInjectorSnippet, 'snip')}
-                  className="px-6 py-3.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl shadow-xl transition"
-                >
-                  {copiedKey === 'snip' ? '✓ Code Copied to Clipboard!' : '📋 Copy Co-Pilot Code'}
-                </button>
-                <p className="text-slate-400 text-[11px]">
-                  <strong>Step 2:</strong> SSC ke OTR page par jaakar F12 dabayein, **Console** mein paste karke Enter dabayein. Screen ke corner mein aapka apna assistant floating box aa jayega!
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 4: PRINTABLE MASTER CARD */}
+        {/* TAB 3: PRINTABLE MASTER SHEET */}
         {activeTab === 'otr-print' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center bg-slate-900 p-4 rounded-2xl border border-slate-800 text-xs">
