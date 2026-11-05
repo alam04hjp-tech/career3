@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 
 interface CustomField {
@@ -73,7 +73,6 @@ export default function OneTapFormCopilotPage() {
     setTimeout(() => setToast(''), 3000);
   };
 
-  // Compile all standard + custom fields into a flat searchable list
   const allFieldsList = useMemo(() => {
     const sscRollCombined = profile.rollCode10th.trim()
       ? `${profile.rollCode10th.trim()} - ${profile.roll10th.trim()}`
@@ -102,7 +101,6 @@ export default function OneTapFormCopilotPage() {
     return list;
   }, [profile]);
 
-  // Filter fields based on search query
   const filteredFields = useMemo(() => {
     if (!searchQuery.trim()) return allFieldsList;
     const q = searchQuery.toLowerCase();
@@ -111,7 +109,6 @@ export default function OneTapFormCopilotPage() {
     );
   }, [allFieldsList, searchQuery]);
 
-  // Voice Command Listener for Co-Pilot
   const startVoiceSearch = () => {
     const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRec) {
@@ -149,7 +146,7 @@ export default function OneTapFormCopilotPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-16">
-      {/* TOP 30% FLOATING CO-PILOT OVERLAY BAR (Sticky on top when Co-Pilot Mode is ON) */}
+      {/* TOP 30% FLOATING CO-PILOT OVERLAY BAR */}
       <div className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-md border-b-2 border-emerald-500 shadow-2xl p-4 transition-all">
         <div className="max-w-5xl mx-auto space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -173,7 +170,6 @@ export default function OneTapFormCopilotPage() {
             </div>
           </div>
 
-          {/* Search Box & Voice Trigger */}
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
               <input
@@ -218,7 +214,6 @@ export default function OneTapFormCopilotPage() {
       {/* MAIN CONTAINER */}
       <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
         {activeTab === 'copilot' ? (
-          /* QUICK SEARCH & CO-PILOT VIEW */
           <div className="space-y-4">
             <div className="flex justify-between items-center bg-slate-900 p-4 rounded-2xl border border-slate-800 text-xs">
               <div>
@@ -241,7 +236,6 @@ export default function OneTapFormCopilotPage() {
               ))}
             </div>
 
-            {/* Selected Large View Modal */}
             {selectedField && (
               <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
                 <div className="bg-slate-900 border-2 border-emerald-500 p-6 rounded-3xl max-w-lg w-full space-y-4 shadow-2xl">
@@ -281,7 +275,6 @@ export default function OneTapFormCopilotPage() {
             )}
           </div>
         ) : (
-          /* PROFILE VAULT EDITOR (WITH CUSTOM FIELDS) */
           <div className="space-y-6 text-xs">
             <div className="flex justify-between items-center bg-slate-900 p-4 rounded-2xl border border-slate-800">
               <div>
@@ -297,7 +290,6 @@ export default function OneTapFormCopilotPage() {
               </button>
             </div>
 
-            {/* Standard Details */}
             <div className="bg-slate-900 p-5 rounded-3xl border border-slate-800 space-y-4">
               <h2 className="text-xs font-black text-amber-400 uppercase border-b border-slate-800 pb-2">
                 👤 Standard Form Details
@@ -365,7 +357,6 @@ export default function OneTapFormCopilotPage() {
               </div>
             </div>
 
-            {/* Custom Fields Section */}
             <div className="bg-slate-900 p-5 rounded-3xl border border-slate-800 space-y-4">
               <h2 className="text-xs font-black text-cyan-400 uppercase border-b border-slate-800 pb-2">
                 ➕ Custom Fields (Add Your Own Extra Form Data)
@@ -392,7 +383,6 @@ export default function OneTapFormCopilotPage() {
                 ))}
               </div>
 
-              {/* Add New Custom Field Form */}
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
