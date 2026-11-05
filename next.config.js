@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  swcMinify: true,
+  transpilePackages: ['@huggingface/transformers'],
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,
