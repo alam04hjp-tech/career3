@@ -27,37 +27,51 @@ Return ONLY a valid JSON object with these exact keys (use empty string "" if no
   "percentageOrCgpa": "Percentage or GPA number only"
 }`;
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: prompt },
-                {
-                  inline_data: {
-                    mime_type: mimeType || 'image/jpeg',
-                    data: imageBase64,
+    let response: Response | null = null;
+    let data: any = null;
+
+    // Retry up to 3 times automatically if server is busy
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { text: prompt },
+                  {
+                    inline_data: {
+                      mime_type: mimeType || 'image/jpeg',
+                      data: imageBase64,
+                    },
                   },
-                },
-              ],
+                ],
+              },
+            ],
+            generationConfig: {
+              response_mime_type: 'application/json',
             },
-          ],
-          generationConfig: {
-            response_mime_type: 'application/json',
-          },
-        }),
+          }),
+        }
+      );
+
+      data = await response.json();
+      if (response.ok) break;
+
+      const errMsg = data?.error?.message || '';
+      if (errMsg.includes('high demand') || errMsg.includes('overloaded')) {
+        await new Promise((resolve) => setTimeout(resolve, 2000)); // 2 sec wait
+        continue;
       }
-    );
+      break;
+    }
 
-    const data = await response.json();
-
-    if (!response.ok) {
+    if (!response || !response.ok) {
       return NextResponse.json(
-        { error: data?.error?.message || 'Gemini API Error' },
+        { error: data?.error?.message || 'Google AI server is busy. Please try uploading again in a few seconds.' },
         { status: 500 }
       );
     }
