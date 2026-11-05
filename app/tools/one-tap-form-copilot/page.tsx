@@ -19,7 +19,7 @@ interface StudentProfile {
   fullName: string;
   fatherName: string;
   motherName: string;
-  dob: string; // YYYY-MM-DD
+  dob: string;
   gender: 'Male' | 'Female' | 'Transgender';
   category: 'UR' | 'OBC-NCL' | 'SC' | 'ST' | 'EWS';
   highestQualification: string;
@@ -87,7 +87,6 @@ const DEFAULT_PROFILE: StudentProfile = {
   ],
 };
 
-// Strips banned salutations per SSC OTR Rules (Point 2, 6, 7)
 function cleanSscName(raw: string): string {
   return raw
     .toUpperCase()
@@ -110,7 +109,7 @@ export default function OneTapFormCopilotPage() {
   const pipCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const pipVideoRef = useRef<HTMLVideoElement | null>(null);
 
-  // Load saved profile from LocalStorage
+  // Load saved profile
   useEffect(() => {
     const saved = localStorage.getItem('careersathi_student_otr_vault_v2');
     if (saved) {
@@ -122,10 +121,22 @@ export default function OneTapFormCopilotPage() {
     }
   }, []);
 
+  // Attach event listener for PiP leave safely
+  useEffect(() => {
+    const videoEl = pipVideoRef.current;
+    if (!videoEl) return;
+
+    const handleLeavePiP = () => setIsPipActive(false);
+    videoEl.addEventListener('leavepictureinpicture', handleLeavePiP);
+    return () => {
+      videoEl.removeEventListener('leavepictureinpicture', handleLeavePiP);
+    };
+  }, []);
+
   const saveProfile = (nextProfile: StudentProfile = profile) => {
     setProfile(nextProfile);
     localStorage.setItem('careersathi_student_otr_vault_v2', JSON.stringify(nextProfile));
-    setSaveToast('✅ Details Saved! Ab Floating Card launch karein.');
+    setSaveToast('✅ Details Saved successfully!');
     setTimeout(() => setSaveToast(''), 3000);
   };
 
@@ -184,7 +195,6 @@ export default function OneTapFormCopilotPage() {
     saveProfile(sample);
   };
 
-  // SSC OTR Formatted Values (Matches ssc.gov.in exact rules)
   const sscFormatted = useMemo(() => {
     const cleanCandidate = cleanSscName(profile.fullName) || 'YOUR NAME';
     const cleanFather = cleanSscName(profile.fatherName) || 'FATHER NAME';
@@ -197,7 +207,6 @@ export default function OneTapFormCopilotPage() {
     }
 
     const matric = profile.academics[0] || DEFAULT_PROFILE.academics[0];
-    // SSC Rule 9: "If Roll Code is given in your Matriculation Certificate then enter 'Roll Code - Roll No.'"
     const sscMatricRoll = matric.rollCode.trim()
       ? `${matric.rollCode.trim()}-${matric.rollNumber.trim()}`
       : matric.rollNumber.trim() || 'ROLL NO';
@@ -214,7 +223,6 @@ export default function OneTapFormCopilotPage() {
     };
   }, [profile]);
 
-  // 4 High-Contrast Slides for the Floating Picture-in-Picture Window
   const pipSlides = useMemo(
     () => [
       {
@@ -265,7 +273,6 @@ export default function OneTapFormCopilotPage() {
     [profile, sscFormatted]
   );
 
-  // Draw current slide onto HD Canvas (which feeds the Floating PiP Window)
   const renderSlideOnCanvas = useCallback(
     (slideIdx: number) => {
       const canvas = pipCanvasRef.current;
@@ -280,11 +287,9 @@ export default function OneTapFormCopilotPage() {
 
       const slide = pipSlides[slideIdx] || pipSlides[0];
 
-      // Dark High-Contrast Background
       ctx.fillStyle = '#090d16';
       ctx.fillRect(0, 0, W, H);
 
-      // Top Header Bar
       ctx.fillStyle = '#1e293b';
       ctx.fillRect(0, 0, W, 68);
       ctx.fillStyle = '#10b981';
@@ -298,15 +303,12 @@ export default function OneTapFormCopilotPage() {
       ctx.font = 'bold 14px system-ui, sans-serif';
       ctx.fillText(slide.badge, 22, 54);
 
-      // Slide Pill Indicator on Top Right
       ctx.fillStyle = '#f59e0b';
       ctx.font = '900 18px system-ui, sans-serif';
       ctx.fillText(`CARD ${slideIdx + 1}/4`, W - 115, 42);
 
-      // Rows
       let y = 92;
       for (const row of slide.rows) {
-        // Card Box
         ctx.fillStyle = '#111827';
         ctx.strokeStyle = '#334155';
         ctx.lineWidth = 2;
@@ -315,12 +317,10 @@ export default function OneTapFormCopilotPage() {
         ctx.fill();
         ctx.stroke();
 
-        // Label
         ctx.fillStyle = '#94a3b8';
         ctx.font = 'bold 15px system-ui, sans-serif';
         ctx.fillText(row.label.toUpperCase(), 34, y + 24);
 
-        // Big Bold Value (Easy to read in small floating mobile window)
         ctx.fillStyle = row.color;
         ctx.font = '900 26px monospace, system-ui, sans-serif';
         ctx.fillText(row.value || '—', 34, y + 58);
@@ -328,7 +328,6 @@ export default function OneTapFormCopilotPage() {
         y += 86;
       }
 
-      // Bottom Tip Strip
       ctx.fillStyle = '#0f172a';
       ctx.fillRect(0, H - 38, W, 38);
       ctx.fillStyle = '#fde047';
@@ -342,7 +341,6 @@ export default function OneTapFormCopilotPage() {
     renderSlideOnCanvas(pipSlideIndex);
   }, [pipSlideIndex, renderSlideOnCanvas]);
 
-  // Auto-cycle slides every 6 seconds if enabled (Great for Mobile PiP when hands are busy typing)
   useEffect(() => {
     if (!autoCyclePip) return;
     const timer = setInterval(() => {
@@ -351,7 +349,6 @@ export default function OneTapFormCopilotPage() {
     return () => clearInterval(timer);
   }, [autoCyclePip, pipSlides.length]);
 
-  // Launch Real Floating Picture-in-Picture Window (Works on Mobile & Desktop!)
   const handleLaunchFloatingPip = async () => {
     try {
       const canvas = pipCanvasRef.current;
@@ -366,7 +363,6 @@ export default function OneTapFormCopilotPage() {
         return;
       }
 
-      // Capture canvas stream at 15 FPS
       const stream = (canvas as any).captureStream
         ? (canvas as any).captureStream(15)
         : (canvas as any).mozCaptureStream(15);
@@ -378,41 +374,19 @@ export default function OneTapFormCopilotPage() {
         await (video as any).requestPictureInPicture();
         setIsPipActive(true);
       } else if ((video as any).webkitSetPresentationMode) {
-        // iOS Safari PiP fallback
         (video as any).webkitSetPresentationMode('picture-in-picture');
         setIsPipActive(true);
       } else {
-        alert(
-          'Aapke browser mein Floating PiP supported nahi hai. Aap neeche "Voice Dictation" ya "WhatsApp Self-Share" use kar sakte hain!'
-        );
-      }
-
-      // Hook up MediaSession Next/Previous buttons inside PiP overlay!
-      if ('mediaSession' in navigator) {
-        navigator.mediaSession.metadata = new MediaMetadata({
-          title: `SSC OTR Card ${pipSlideIndex + 1}/4`,
-          artist: sscFormatted.cleanCandidate,
-          album: 'CareerSathi Form Co-Pilot',
-        });
-        navigator.mediaSession.setActionHandler('nexttrack', () => {
-          setPipSlideIndex((prev) => (prev + 1) % pipSlides.length);
-        });
-        navigator.mediaSession.setActionHandler('previoustrack', () => {
-          setPipSlideIndex((prev) => (prev - 1 + pipSlides.length) % pipSlides.length);
-        });
+        alert('Aapke browser mein Floating PiP supported nahi hai.');
       }
     } catch (err) {
       console.error('PiP error:', err);
-      alert(
-        'Floating Window kholne ke liye ek baar phir se button dabayein, ya "Auto-Switch Cards" ON karke use karein.'
-      );
     }
   };
 
-  // Voice Dictation Co-Pilot (Reads out fields slowly while user types in SSC tab)
   const toggleVoiceDictation = () => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      alert('Aapke phone browser mein Voice Reader उपलब्ध nahi hai.');
+      alert('Voice Reader उपलब्ध नहीं है।');
       return;
     }
 
@@ -425,34 +399,23 @@ export default function OneTapFormCopilotPage() {
     const spellOut = (str: string) => str.split('').join(' . ');
 
     const scriptToRead = [
-      `CareerSathi Form Assistant shuru ho raha hai. Ab aap SSC OTR tab khol sakte hain.`,
-      `Point 2, Candidate Name: ${sscFormatted.cleanCandidate}. Spelling: ${spellOut(
-        sscFormatted.cleanCandidate
-      )}.`,
-      `Point 5, Date of Birth: ${sscFormatted.dobDash}.`,
-      `Point 6, Father Name: ${sscFormatted.cleanFather}. Spelling: ${spellOut(
-        sscFormatted.cleanFather
-      )}.`,
-      `Point 7, Mother Name: ${sscFormatted.cleanMother}. Spelling: ${spellOut(
-        sscFormatted.cleanMother
-      )}.`,
-      `Point 9, Matric Roll Number: ${spellOut(sscFormatted.sscMatricRoll)}. Passing year: ${
-        sscFormatted.matricYear
-      }.`,
-      `Point 12, Mobile Number: ${spellOut(profile.mobile)}.`,
+      `CareerSathi Form Assistant shuru ho raha hai.`,
+      `Candidate Name: ${sscFormatted.cleanCandidate}. Spelling: ${spellOut(sscFormatted.cleanCandidate)}.`,
+      `Date of Birth: ${sscFormatted.dobDash}.`,
+      `Father Name: ${sscFormatted.cleanFather}.`,
+      `Matric Roll Number: ${spellOut(sscFormatted.sscMatricRoll)}.`,
     ].join(' ... ');
 
     window.speechSynthesis.cancel();
     const utter = new SpeechSynthesisUtterance(scriptToRead);
     utter.lang = 'en-IN';
-    utter.rate = 0.78; // Slow & clear for typing along
+    utter.rate = 0.78;
     utter.onend = () => setIsSpeaking(false);
     utter.onerror = () => setIsSpeaking(false);
     setIsSpeaking(true);
     window.speechSynthesis.speak(utter);
   };
 
-  // Copy helper
   const copyText = (txt: string, key: string) => {
     if (!txt) return;
     navigator.clipboard.writeText(txt);
@@ -460,7 +423,6 @@ export default function OneTapFormCopilotPage() {
     setTimeout(() => setCopiedKey(''), 1800);
   };
 
-  // Copy ALL fields sequentially so Android Gboard Clipboard saves all of them!
   const preloadGboardClipboard = async () => {
     const items = [
       sscFormatted.cleanCandidate,
@@ -481,21 +443,15 @@ export default function OneTapFormCopilotPage() {
     setTimeout(() => setCopiedKey(''), 3000);
   };
 
-  // Send Formatted Cheat Sheet to Own WhatsApp (Visible in Mobile Notification Shade!)
   const sendToWhatsAppSelf = () => {
     const msg = [
       `⚡ *SSC OTR QUICK REFERENCE CARD*`,
-      `2. *Name:* ${sscFormatted.cleanCandidate}`,
-      `5. *DOB:* ${sscFormatted.dobDash}`,
-      `6. *Father:* ${sscFormatted.cleanFather}`,
-      `7. *Mother:* ${sscFormatted.cleanMother}`,
-      `8. *10th Board:* ${sscFormatted.matricBoard}`,
-      `9. *10th Roll:* ${sscFormatted.sscMatricRoll}`,
-      `10. *10th Year & %:* ${sscFormatted.matricYear} (${sscFormatted.matricPct})`,
-      `12. *Mobile:* ${profile.mobile}`,
-      `13. *Email:* ${profile.email}`,
-      `• *Caste Cert:* ${profile.casteCertNumber}`,
-      `• *PIN:* ${profile.pincode}`,
+      `Name: ${sscFormatted.cleanCandidate}`,
+      `DOB: ${sscFormatted.dobDash}`,
+      `Father: ${sscFormatted.cleanFather}`,
+      `Mother: ${sscFormatted.cleanMother}`,
+      `10th Roll: ${sscFormatted.sscMatricRoll}`,
+      `Mobile: ${profile.mobile}`,
     ].join('\n');
 
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
@@ -503,17 +459,14 @@ export default function OneTapFormCopilotPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-3 sm:p-6 font-sans">
-      {/* Hidden Video element required for Browser Picture-in-Picture API */}
       <video
         ref={pipVideoRef}
         muted
         playsInline
-        onLeavePictureInPicture={() => setIsPipActive(false)}
         className="w-1 h-1 opacity-0 pointer-events-none fixed -bottom-10"
       />
 
       <div className="max-w-6xl mx-auto space-y-5">
-        {/* Top Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
           <div className="flex items-center gap-3">
             <Link
@@ -525,12 +478,9 @@ export default function OneTapFormCopilotPage() {
             <div>
               <h1 className="text-lg sm:text-2xl font-black text-white flex items-center gap-2">
                 📱 Mobile Exam Form Floating Co-Pilot
-                <span className="text-[10px] bg-emerald-500 text-slate-950 px-2 py-0.5 rounded-full font-black">
-                  WORKS ON PHONE &amp; PC
-                </span>
               </h1>
               <p className="text-[11px] text-slate-400">
-                Opens a real Floating Mini-Screen (PiP) that stays on top of SSC OTR, IBPS &amp; Railway websites on your mobile!
+                Stays on top of SSC OTR, IBPS &amp; Railway websites on your mobile!
               </p>
             </div>
           </div>
@@ -550,7 +500,6 @@ export default function OneTapFormCopilotPage() {
           </div>
         )}
 
-        {/* Mode Switcher */}
         <div className="grid grid-cols-3 gap-2 text-xs">
           <button
             type="button"
@@ -562,9 +511,7 @@ export default function OneTapFormCopilotPage() {
             }`}
           >
             <div>1. 📱 Floating Screen Co-Pilot</div>
-            <div className="text-[10px] opacity-80 font-normal">
-              Stays on top of SSC Form on Mobile
-            </div>
+            <div className="text-[10px] opacity-80 font-normal">Stays on top of SSC Form</div>
           </button>
 
           <button
@@ -577,9 +524,7 @@ export default function OneTapFormCopilotPage() {
             }`}
           >
             <div>2. ✏️ Fill / Edit Your Details</div>
-            <div className="text-[10px] opacity-80 font-normal">
-              Save 10th, 12th, Name &amp; Roll No
-            </div>
+            <div className="text-[10px] opacity-80 font-normal">Save Name &amp; Roll No</div>
           </button>
 
           <button
@@ -592,18 +537,12 @@ export default function OneTapFormCopilotPage() {
             }`}
           >
             <div>3. 📋 Letter-by-Letter &amp; Print</div>
-            <div className="text-[10px] opacity-80 font-normal">
-              Zero-Typo Spelling &amp; Gboard Copy
-            </div>
+            <div className="text-[10px] opacity-80 font-normal">Zero-Typo Spelling</div>
           </button>
         </div>
 
-        {/* =================================================================== */}
-        {/* TAB 1: MOBILE FLOATING MINI-WINDOW (PICTURE-IN-PICTURE)             */}
-        {/* =================================================================== */}
         {activeTab === 'mobile-pip' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-            {/* Left Column: Live Canvas Preview & Launch Button */}
             <div className="lg:col-span-7 bg-slate-900 p-4 sm:p-5 rounded-3xl border border-emerald-500/40 space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
@@ -615,7 +554,6 @@ export default function OneTapFormCopilotPage() {
                   </h2>
                 </div>
 
-                {/* Slide Selector Buttons */}
                 <div className="flex items-center gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-800 text-xs">
                   <button
                     type="button"
@@ -626,9 +564,7 @@ export default function OneTapFormCopilotPage() {
                   >
                     ◀ Prev
                   </button>
-                  <span className="px-2 font-black text-amber-400">
-                    Card {pipSlideIndex + 1}/4
-                  </span>
+                  <span className="px-2 font-black text-amber-400">Card {pipSlideIndex + 1}/4</span>
                   <button
                     type="button"
                     onClick={() => setPipSlideIndex((p) => (p + 1) % pipSlides.length)}
@@ -639,15 +575,10 @@ export default function OneTapFormCopilotPage() {
                 </div>
               </div>
 
-              {/* High-Contrast Canvas that becomes the Floating Window */}
               <div className="rounded-2xl overflow-hidden border-2 border-slate-700 shadow-2xl bg-slate-950">
-                <canvas
-                  ref={pipCanvasRef}
-                  className="w-full h-auto block"
-                />
+                <canvas ref={pipCanvasRef} className="w-full h-auto block" />
               </div>
 
-              {/* Auto-Switch Toggle + Launch Floating Window Button */}
               <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                 <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none bg-slate-950 px-3 py-2 rounded-xl border border-slate-800">
                   <input
@@ -656,7 +587,7 @@ export default function OneTapFormCopilotPage() {
                     onChange={(e) => setAutoCyclePip(e.target.checked)}
                     className="accent-emerald-500 w-4 h-4"
                   />
-                  <span>🔄 Auto-rotate cards every 6 sec (Hands-free on mobile)</span>
+                  <span>🔄 Auto-rotate cards every 6 sec</span>
                 </label>
 
                 <div className="flex flex-wrap gap-2 w-full sm:w-auto">
@@ -665,28 +596,22 @@ export default function OneTapFormCopilotPage() {
                     onClick={handleLaunchFloatingPip}
                     className="flex-1 sm:flex-initial px-6 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs sm:text-sm rounded-2xl shadow-xl transition"
                   >
-                    {isPipActive
-                      ? '❌ Close Floating Window'
-                      : '📱 Pop-Out Floating Card on Screen'}
+                    {isPipActive ? '❌ Close Floating Window' : '📱 Pop-Out Floating Card on Screen'}
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* Right Column: Mobile Action Center (Voice, WhatsApp, Gboard) */}
             <div className="lg:col-span-5 space-y-4 text-xs">
               <div className="bg-slate-900 p-5 rounded-3xl border border-slate-800 space-y-4">
                 <h3 className="text-sm font-black text-amber-400 uppercase">
-                  🚀 Mobile Par SSC OTR Kaise Bharein? (3 Easy Ways)
+                  🚀 Mobile Par SSC OTR Kaise Bharein?
                 </h3>
 
-                {/* Way 1: Floating PiP */}
                 <div className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 space-y-2">
-                  <div className="font-black text-emerald-400 text-xs">
-                    1️⃣ Floating Mini-Window (Sabse Best)
-                  </div>
+                  <div className="font-black text-emerald-400 text-xs">1️⃣ Floating Mini-Window</div>
                   <p className="text-slate-400 text-[11px] leading-relaxed">
-                    Upar green button <strong>&quot;Pop-Out Floating Card&quot;</strong> dabayein. Aapki screen par ek chhoti floating window aa jayegi. Ab seedha <strong>SSC OTR tab</strong> kholein—floating window SSC form ke upar dikhti rahegi!
+                    Upar green button dabayein, phir SSC portal kholein—floating card form ke upar dikhta rahega.
                   </p>
                   <a
                     href="https://ssc.gov.in/candidate-portal/one-time-registration/personal-details"
@@ -698,13 +623,10 @@ export default function OneTapFormCopilotPage() {
                   </a>
                 </div>
 
-                {/* Way 2: Voice Dictation */}
                 <div className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 space-y-2">
-                  <div className="font-black text-cyan-400 text-xs">
-                    2️⃣ Hands-Free Voice Dictation (Bol-Bol Kar Bharwaye)
-                  </div>
+                  <div className="font-black text-cyan-400 text-xs">2️⃣ Voice Dictation</div>
                   <p className="text-slate-400 text-[11px] leading-relaxed">
-                    Niche button dabayein—yeh tool background mein aapka Name spelling, DOB aur 10th Roll Number dheere-dheere bolega aur aap SSC tab mein sunkar type karte jayein!
+                    Assistant dheere-dheere spelling aur roll number bolega.
                   </p>
                   <button
                     type="button"
@@ -715,36 +637,26 @@ export default function OneTapFormCopilotPage() {
                         : 'bg-cyan-600 hover:bg-cyan-500 text-slate-950'
                     }`}
                   >
-                    {isSpeaking
-                      ? '⏹ Stop Voice Dictation'
-                      : '🔊 Start Slow Voice Dictation (Audio Helper)'}
+                    {isSpeaking ? '⏹ Stop Voice' : '🔊 Start Slow Voice Dictation'}
                   </button>
                 </div>
 
-                {/* Way 3: Gboard Multi-Copy & WhatsApp Notification */}
                 <div className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 space-y-2.5">
-                  <div className="font-black text-purple-400 text-xs">
-                    3️⃣ Mobile Keyboard (Gboard) &amp; WhatsApp Notification
-                  </div>
-                  <p className="text-slate-400 text-[11px] leading-relaxed">
-                    Android phone ke Gboard keyboard mein saare fields ek sath load karein, ya apne WhatsApp par bhej kar upar Notification Bar se dekh kar bharein:
-                  </p>
+                  <div className="font-black text-purple-400 text-xs">3️⃣ Keyboard &amp; WhatsApp</div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={preloadGboardClipboard}
                       className="py-2.5 px-3 bg-purple-600 hover:bg-purple-500 text-white font-black rounded-xl"
                     >
-                      {copiedKey === 'gboard-all'
-                        ? '✓ Loaded in Keyboard!'
-                        : '⌨️ Load All in Keyboard'}
+                      {copiedKey === 'gboard-all' ? '✓ Loaded!' : '⌨️ Load in Keyboard'}
                     </button>
                     <button
                       type="button"
                       onClick={sendToWhatsAppSelf}
                       className="py-2.5 px-3 bg-emerald-700 hover:bg-emerald-600 text-white font-black rounded-xl"
                     >
-                      💬 Send to My WhatsApp
+                      💬 Send to WhatsApp
                     </button>
                   </div>
                 </div>
@@ -753,9 +665,6 @@ export default function OneTapFormCopilotPage() {
           </div>
         )}
 
-        {/* =================================================================== */}
-        {/* TAB 2: EDIT STUDENT DETAILS VAULT                                   */}
-        {/* =================================================================== */}
         {activeTab === 'vault-editor' && (
           <div className="bg-slate-900 p-5 rounded-3xl border border-slate-800 space-y-5 text-xs">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
@@ -763,9 +672,6 @@ export default function OneTapFormCopilotPage() {
                 <h2 className="text-sm font-black text-amber-400 uppercase">
                   🪪 Enter Your 10th Marksheet &amp; OTR Details Once
                 </h2>
-                <p className="text-[11px] text-slate-400">
-                  Salutations (Mr/Shri/Smt/Late) are automatically stripped as per SSC OTR rules.
-                </p>
               </div>
               <button
                 type="button"
@@ -781,35 +687,27 @@ export default function OneTapFormCopilotPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
-                <label className="block text-slate-400 font-bold mb-1">
-                  1. Aadhaar Number (12 Digits)
-                </label>
+                <label className="block text-slate-400 font-bold mb-1">Aadhaar Number</label>
                 <input
                   type="text"
                   value={profile.aadhaarNo}
                   onChange={(e) => setProfile({ ...profile, aadhaarNo: e.target.value })}
-                  placeholder="e.g. 5262 6262 7262"
                   className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono font-bold"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-400 font-bold mb-1">
-                  2. Candidate Name (As per 10th Cert)
-                </label>
+                <label className="block text-slate-400 font-bold mb-1">Candidate Name</label>
                 <input
                   type="text"
                   value={profile.fullName}
                   onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
-                  placeholder="Without Shri/Mr/Ms"
                   className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-emerald-300 font-black uppercase"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-400 font-bold mb-1">
-                  5. Date of Birth (DOB)
-                </label>
+                <label className="block text-slate-400 font-bold mb-1">Date of Birth</label>
                 <input
                   type="date"
                   value={profile.dob}
@@ -819,9 +717,7 @@ export default function OneTapFormCopilotPage() {
               </div>
 
               <div>
-                <label className="block text-slate-400 font-bold mb-1">
-                  6. Father&apos;s Name (Without Shri/Late)
-                </label>
+                <label className="block text-slate-400 font-bold mb-1">Father&apos;s Name</label>
                 <input
                   type="text"
                   value={profile.fatherName}
@@ -831,9 +727,7 @@ export default function OneTapFormCopilotPage() {
               </div>
 
               <div>
-                <label className="block text-slate-400 font-bold mb-1">
-                  7. Mother&apos;s Name (Without Smt/Late)
-                </label>
+                <label className="block text-slate-400 font-bold mb-1">Mother&apos;s Name</label>
                 <input
                   type="text"
                   value={profile.motherName}
@@ -843,25 +737,7 @@ export default function OneTapFormCopilotPage() {
               </div>
 
               <div>
-                <label className="block text-slate-400 font-bold mb-1">
-                  8. 10th (Matriculation) Board Name
-                </label>
-                <input
-                  type="text"
-                  value={profile.academics[0]?.boardOrUniv || ''}
-                  onChange={(e) => {
-                    const nextAc = [...profile.academics];
-                    nextAc[0] = { ...nextAc[0], boardOrUniv: e.target.value };
-                    setProfile({ ...profile, academics: nextAc });
-                  }}
-                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-amber-400 font-bold mb-1">
-                  9a. 10th Roll Code (If Bihar/JAC Board)
-                </label>
+                <label className="block text-amber-400 font-bold mb-1">10th Roll Code</label>
                 <input
                   type="text"
                   value={profile.academics[0]?.rollCode || ''}
@@ -870,15 +746,12 @@ export default function OneTapFormCopilotPage() {
                     nextAc[0] = { ...nextAc[0], rollCode: e.target.value };
                     setProfile({ ...profile, academics: nextAc });
                   }}
-                  placeholder="e.g. 71024 (Leave empty if CBSE)"
                   className="w-full p-2.5 bg-slate-950 border border-amber-500/50 rounded-xl text-amber-300 font-mono font-bold"
                 />
               </div>
 
               <div>
-                <label className="block text-emerald-400 font-bold mb-1">
-                  9b. 10th Roll Number
-                </label>
+                <label className="block text-emerald-400 font-bold mb-1">10th Roll Number</label>
                 <input
                   type="text"
                   value={profile.academics[0]?.rollNumber || ''}
@@ -887,32 +760,12 @@ export default function OneTapFormCopilotPage() {
                     nextAc[0] = { ...nextAc[0], rollNumber: e.target.value };
                     setProfile({ ...profile, academics: nextAc });
                   }}
-                  placeholder="e.g. 1800452"
                   className="w-full p-2.5 bg-slate-950 border border-emerald-500/50 rounded-xl text-emerald-300 font-mono font-bold"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-400 font-bold mb-1">
-                  10. 10th Passing Year
-                </label>
-                <input
-                  type="text"
-                  maxLength={4}
-                  value={profile.academics[0]?.passingYear || ''}
-                  onChange={(e) => {
-                    const nextAc = [...profile.academics];
-                    nextAc[0] = { ...nextAc[0], passingYear: e.target.value };
-                    setProfile({ ...profile, academics: nextAc });
-                  }}
-                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-bold mb-1">
-                  12. Mobile Number
-                </label>
+                <label className="block text-slate-400 font-bold mb-1">Mobile Number</label>
                 <input
                   type="tel"
                   maxLength={10}
@@ -921,123 +774,54 @@ export default function OneTapFormCopilotPage() {
                   className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono font-bold"
                 />
               </div>
-
-              <div>
-                <label className="block text-slate-400 font-bold mb-1">
-                  13. Email Address
-                </label>
-                <input
-                  type="email"
-                  value={profile.email}
-                  onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-bold mb-1">
-                  Caste / EWS Certificate No.
-                </label>
-                <input
-                  type="text"
-                  value={profile.casteCertNumber}
-                  onChange={(e) => setProfile({ ...profile, casteCertNumber: e.target.value })}
-                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-cyan-300 font-mono font-bold"
-                />
-              </div>
             </div>
           </div>
         )}
 
-        {/* =================================================================== */}
-        {/* TAB 3: LETTER-BY-LETTER ZERO-TYPO SPELLING & QUICK COPY             */}
-        {/* =================================================================== */}
         {activeTab === 'otr-print' && (
           <div className="bg-slate-900 p-5 rounded-3xl border border-slate-800 space-y-4 text-xs">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
               <div>
                 <h2 className="text-sm font-black text-amber-400 uppercase">
-                  🔤 Zero-Mistake Character-by-Character Verification Sheet
+                  🔤 Zero-Mistake Character Verification Sheet
                 </h2>
-                <p className="text-[11px] text-slate-400">
-                  SSC OTR asks you to type every field twice. Match each character box below so your OTR never gets locked with a typo!
-                </p>
               </div>
               <button
                 type="button"
                 onClick={() => window.print()}
                 className="px-4 py-2 bg-emerald-600 text-white font-black rounded-xl"
               >
-                🖨️ Save as PDF / Print
+                🖨️ Print
               </button>
             </div>
 
             <div className="space-y-3">
               {[
-                {
-                  label: '2. Candidate Name (Without Salutation)',
-                  val: sscFormatted.cleanCandidate,
-                  key: 'c1',
-                },
-                {
-                  label: '5. Date of Birth (SSC DD-MM-YYYY Format)',
-                  val: sscFormatted.dobDash,
-                  key: 'c2',
-                },
-                {
-                  label: "6. Father's Name (Without Salutation)",
-                  val: sscFormatted.cleanFather,
-                  key: 'c3',
-                },
-                {
-                  label: "7. Mother's Name (Without Salutation)",
-                  val: sscFormatted.cleanMother,
-                  key: 'c4',
-                },
-                {
-                  label: '9. SSC 10th Roll Number (Roll Code - Roll No.)',
-                  val: sscFormatted.sscMatricRoll,
-                  key: 'c5',
-                },
-                {
-                  label: '12. Candidate Mobile Number',
-                  val: profile.mobile,
-                  key: 'c6',
-                },
+                { label: 'Candidate Name', val: sscFormatted.cleanCandidate, key: 'c1' },
+                { label: 'Date of Birth', val: sscFormatted.dobDash, key: 'c2' },
+                { label: "Father's Name", val: sscFormatted.cleanFather, key: 'c3' },
+                { label: '10th Roll Number', val: sscFormatted.sscMatricRoll, key: 'c5' },
               ].map((item) => (
-                <div
-                  key={item.key}
-                  className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 space-y-2"
-                >
+                <div key={item.key} className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-slate-400">{item.label}</span>
                     <button
                       type="button"
                       onClick={() => copyText(item.val, item.key)}
                       className={`px-3 py-1 rounded-lg font-black ${
-                        copiedKey === item.key
-                          ? 'bg-emerald-500 text-slate-950'
-                          : 'bg-slate-800 text-white'
+                        copiedKey === item.key ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-white'
                       }`}
                     >
                       {copiedKey === item.key ? '✓ Copied' : '1-Tap Copy'}
                     </button>
                   </div>
-
-                  {/* Character Boxes like OMR / Official Paper Form */}
                   <div className="flex flex-wrap gap-1">
                     {(item.val || '—').split('').map((ch, idx) => (
                       <span
                         key={idx}
-                        className={`w-7 h-8 flex items-center justify-center rounded font-mono font-black text-sm border ${
-                          ch === ' '
-                            ? 'bg-slate-900 border-slate-800 text-slate-600'
-                            : ch === '-'
-                            ? 'bg-amber-500/20 border-amber-500 text-amber-300'
-                            : 'bg-slate-900 border-slate-700 text-emerald-300'
-                        }`}
+                        className="w-7 h-8 flex items-center justify-center rounded font-mono font-black text-sm border bg-slate-900 border-slate-700 text-emerald-300"
                       >
-                        {ch === ' ' ? '␣' : ch}
+                        {ch}
                       </span>
                     ))}
                   </div>
