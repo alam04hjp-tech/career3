@@ -12,7 +12,7 @@ export default function BgRemover() {
     setOrig(URL.createObjectURL(file));
     setLoading(true);
     try {
-      const { env, pipeline } = await import('@huggingface/transformers');
+      const { env, pipeline } = await import('@xenova/transformers');
       env.allowLocalModels = false;
       // RMBG-1.4 = Best stable model for Next.js 13
       const segmenter = await pipeline('image-segmentation', 'briaai/RMBG-1.4', { device: 'wasm' });
