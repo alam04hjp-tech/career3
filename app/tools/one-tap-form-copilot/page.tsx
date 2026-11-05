@@ -91,14 +91,13 @@ export default function OneTapFormCopilotPage() {
   const [activeTab, setActiveTab] = useState<'mobile-pip' | 'vault-editor'>('mobile-pip');
   const [isPipActive, setIsPipActive] = useState<boolean>(false);
   const [isVoiceListening, setIsVoiceListening] = useState<boolean>(false);
-  const [lastVoiceCommand, setLastVoiceCommand] = useState<string>('Ready! Say "Name", "Father", "Roll", "Bank"...');
+  const [lastVoiceCommand, setLastVoiceCommand] = useState<string>('Ready! Click Mic or Touch Buttons below...');
   const [highlightField, setHighlightField] = useState<string>('ALL');
 
   const pipCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const pipVideoRef = useRef<HTMLVideoElement | null>(null);
   const recognitionRef = useRef<any>(null);
 
-  // Load Saved Profile
   useEffect(() => {
     const saved = localStorage.getItem('careersathi_student_voice_vault_v3');
     if (saved) {
@@ -192,7 +191,6 @@ export default function OneTapFormCopilotPage() {
     };
   }, [profile]);
 
-  // Render on Floating Canvas (Picture-in-Picture window)
   const renderCanvas = useCallback(
     (targetField: string) => {
       const canvas = pipCanvasRef.current;
@@ -205,11 +203,9 @@ export default function OneTapFormCopilotPage() {
       if (canvas.width !== W) canvas.width = W;
       if (canvas.height !== H) canvas.height = H;
 
-      // Dark Background
       ctx.fillStyle = '#090d16';
       ctx.fillRect(0, 0, W, H);
 
-      // Top Status Bar
       ctx.fillStyle = '#1e293b';
       ctx.fillRect(0, 0, W, 70);
       ctx.fillStyle = isVoiceListening ? '#10b981' : '#f59e0b';
@@ -217,15 +213,14 @@ export default function OneTapFormCopilotPage() {
 
       ctx.fillStyle = '#34d399';
       ctx.font = 'bold 16px system-ui, sans-serif';
-      ctx.fillText('🎙️ CAREERSATHI VOICE-CONTROLLED CO-PILOT', 20, 30);
+      ctx.fillText('🎙️ CAREERSATHI VOICE & TOUCH CO-PILOT', 20, 30);
 
       ctx.fillStyle = '#cbd5e1';
       ctx.font = 'bold 13px system-ui, sans-serif';
       ctx.fillText(`HEARD: "${lastVoiceCommand}"`, 20, 54);
 
-      // Single Focused View or Multi-card Overview
       if (targetField === 'NAME') {
-        drawBigCard(ctx, 'CANDIDATE NAME (AS PER 10TH)', formattedData.cleanCandidate, '#4ade80', 'Verify spelling without Mr/Shri');
+        drawBigCard(ctx, 'CANDIDATE NAME (10TH)', formattedData.cleanCandidate, '#4ade80', 'Verify spelling without Mr/Shri');
       } else if (targetField === 'FATHER') {
         drawBigCard(ctx, "FATHER'S NAME", formattedData.cleanFather, '#38bdf8', 'No Shri/Late prefix');
       } else if (targetField === 'MOTHER') {
@@ -236,12 +231,11 @@ export default function OneTapFormCopilotPage() {
         drawBigCard(ctx, '10TH ROLL (CODE - ROLL NO)', formattedData.sscMatricRoll, '#a7f3d0', `Passing Year: ${formattedData.matricYear}`);
       } else if (targetField === 'BANK') {
         drawBigCard(ctx, `BANK: ${profile.bankName.toUpperCase()}`, `A/C: ${profile.bankAccountNo || 'NOT SET'}`, '#facc15', `IFSC: ${profile.bankIfsc || 'NOT SET'}`);
-      } else if (targetField === 'ID' || targetField === 'AADHAAR') {
+      } else if (targetField === 'ID') {
         drawBigCard(ctx, profile.idType.toUpperCase(), profile.idNumber || 'NOT SET', '#38bdf8', 'Double-check 12 digits');
-      } else if (targetField === 'MOBILE' || targetField === 'PHONE') {
+      } else if (targetField === 'MOBILE') {
         drawBigCard(ctx, 'MOBILE NUMBER', profile.mobile || 'NOT SET', '#4ade80', `Email: ${profile.email}`);
       } else {
-        // Default Overview (4 key rows)
         drawDefaultRows(ctx, W);
       }
     },
@@ -262,11 +256,11 @@ export default function OneTapFormCopilotPage() {
     ctx.fillText(title, 50, 160);
 
     ctx.fillStyle = color;
-    ctx.font = '900 42px monospace, system-ui, sans-serif';
+    ctx.font = '900 38px monospace, system-ui, sans-serif';
     ctx.fillText(value, 50, 240);
 
     ctx.fillStyle = '#fde047';
-    ctx.font = 'bold 20px system-ui, sans-serif';
+    ctx.font = 'bold 18px system-ui, sans-serif';
     ctx.fillText(`💡 ${sub}`, 50, 330);
   }
 
@@ -303,11 +297,10 @@ export default function OneTapFormCopilotPage() {
     renderCanvas(highlightField);
   }, [highlightField, renderCanvas]);
 
-  // Speech Recognition Listener (Works continuously in background)
   const startVoiceListener = () => {
     const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRec) {
-      alert('Aapke browser mein Speech Recognition supported nahi hai. Chrome browser use karein.');
+      alert('Speech Recognition not supported in this browser. Use Chrome.');
       return;
     }
 
@@ -317,36 +310,62 @@ export default function OneTapFormCopilotPage() {
 
     const rec = new SpeechRec();
     rec.continuous = true;
-    rec.interimResults = false;
-    rec.lang = 'hi-IN'; // Recognizes Hindi + English words ("Name", "Aadhaar", "Roll Number")
+    rec.interimResults = true; // Real-time capture
+    rec.lang = 'en-US'; // English US captures keywords like Name, Father, DOB, Roll much better
 
     rec.onstart = () => {
       setIsVoiceListening(true);
-      setLastVoiceCommand('Mic is ON! Say "Name", "Father", "Roll", "Bank"...');
+      setLastVoiceCommand('Listening... Say Name, Father, DOB, Roll, Bank');
     };
 
     rec.onresult = (event: any) => {
-      const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
+      const latest = event.results[event.results.length - 1];
+      const transcript = latest[0].transcript.toLowerCase().trim();
       setLastVoiceCommand(transcript);
 
-      // Smart Intent Detection
-      if (transcript.includes('name') || transcript.includes('naam') || transcript.includes('candidate')) {
+      // Flexible Matching
+      if (
+        transcript.includes('name') ||
+        transcript.includes('naam') ||
+        transcript.includes('candidate') ||
+        transcript.includes('nem')
+      ) {
         setHighlightField('NAME');
-      } else if (transcript.includes('father') || transcript.includes('papa') || transcript.includes('pita')) {
+      } else if (
+        transcript.includes('father') ||
+        transcript.includes('papa') ||
+        transcript.includes('pita') ||
+        transcript.includes('fatha')
+      ) {
         setHighlightField('FATHER');
       } else if (transcript.includes('mother') || transcript.includes('mummy') || transcript.includes('mata')) {
         setHighlightField('MOTHER');
-      } else if (transcript.includes('dob') || transcript.includes('birth') || transcript.includes('janam')) {
+      } else if (
+        transcript.includes('dob') ||
+        transcript.includes('birth') ||
+        transcript.includes('date') ||
+        transcript.includes('janam')
+      ) {
         setHighlightField('DOB');
-      } else if (transcript.includes('roll') || transcript.includes('10th') || transcript.includes('matric')) {
+      } else if (
+        transcript.includes('roll') ||
+        transcript.includes('10th') ||
+        transcript.includes('matric') ||
+        transcript.includes('roal')
+      ) {
         setHighlightField('ROLL');
-      } else if (transcript.includes('bank') || transcript.includes('account') || transcript.includes('khata') || transcript.includes('ifsc')) {
+      } else if (transcript.includes('bank') || transcript.includes('account') || transcript.includes('ifsc')) {
         setHighlightField('BANK');
-      } else if (transcript.includes('aadhar') || transcript.includes('aadhaar') || transcript.includes('id') || transcript.includes('pan')) {
+      } else if (
+        transcript.includes('aadhar') ||
+        transcript.includes('aadhaar') ||
+        transcript.includes('id') ||
+        transcript.includes('adhar')
+      ) {
         setHighlightField('ID');
-      } else if (transcript.includes('mobile') || transcript.includes('phone') || transcript.includes('email')) {
+      } else if (transcript.includes('mobile') || transcript.includes('phone') || transcript.includes('number')) {
         setHighlightField('MOBILE');
-      } else if (transcript.includes('all') || transcript.includes('full') || transcript.includes('back')) {
+      } else if (transcript.includes('all') || transcript.includes('back') || transcript.includes('home')) {
         setHighlightField('ALL');
       }
     };
@@ -356,7 +375,6 @@ export default function OneTapFormCopilotPage() {
     };
 
     rec.onend = () => {
-      // Auto-restart if user still wants it active
       if (isVoiceListening) {
         try {
           rec.start();
@@ -375,7 +393,6 @@ export default function OneTapFormCopilotPage() {
     }
   };
 
-  // Launch Picture-in-Picture Floating Mini-Window
   const handleLaunchFloatingPip = async () => {
     try {
       const canvas = pipCanvasRef.current;
@@ -401,7 +418,7 @@ export default function OneTapFormCopilotPage() {
       if ((video as any).requestPictureInPicture) {
         await (video as any).requestPictureInPicture();
         setIsPipActive(true);
-        startVoiceListener(); // Auto-start mic when floating card pops out!
+        startVoiceListener();
       } else {
         alert('Picture-in-Picture is not supported on this browser.');
       }
@@ -415,17 +432,13 @@ export default function OneTapFormCopilotPage() {
       <video ref={pipVideoRef} muted playsInline className="w-1 h-1 opacity-0 pointer-events-none fixed -bottom-10" />
 
       <div className="max-w-6xl mx-auto space-y-5">
-        {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-              🎙️ Voice-Controlled Floating Form Co-Pilot
-              <span className="text-[10px] bg-emerald-500 text-slate-950 px-2 py-0.5 rounded-full font-black">
-                VOICE AI READY
-              </span>
+              🎙️ Voice &amp; Touch Form Co-Pilot
             </h1>
             <p className="text-[11px] text-slate-400">
-              Form khol kar bas bolo: <strong>&quot;Name&quot;</strong>, <strong>&quot;Aadhaar&quot;</strong>, <strong>&quot;Roll Number&quot;</strong>, ya <strong>&quot;Bank Account&quot;</strong> — Floating Card turant wahi dikhayega!
+              Bolo ya Touch karo — Floating card par turant exact details dikhengi!
             </p>
           </div>
 
@@ -442,22 +455,20 @@ export default function OneTapFormCopilotPage() {
               onClick={() => setActiveTab(activeTab === 'mobile-pip' ? 'vault-editor' : 'mobile-pip')}
               className="px-3 py-1.5 bg-blue-600 text-white font-bold text-xs rounded-xl"
             >
-              {activeTab === 'mobile-pip' ? '✏️ Edit Profile' : '📱 Open Floating Card'}
+              {activeTab === 'mobile-pip' ? '✏️ Edit Profile' : '📱 Open Co-Pilot'}
             </button>
           </div>
         </div>
 
-        {/* TAB 1: FLOATING VOICE VIEW */}
         {activeTab === 'mobile-pip' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-            {/* Canvas Preview Box */}
             <div className="lg:col-span-7 bg-slate-900 p-4 sm:p-5 rounded-3xl border border-emerald-500/40 space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2.5 py-0.5 rounded-full font-black uppercase">
-                  Live Voice Canvas (Pops Out on Screen)
+                  Live Preview Canvas
                 </span>
                 <span className={`text-[11px] font-bold ${isVoiceListening ? 'text-emerald-400 animate-pulse' : 'text-slate-500'}`}>
-                  {isVoiceListening ? '🎙️ Mic Active &amp; Listening' : '🔇 Mic Inactive'}
+                  {isVoiceListening ? '🎙️ Mic Listening...' : '🔇 Mic Off'}
                 </span>
               </div>
 
@@ -465,14 +476,13 @@ export default function OneTapFormCopilotPage() {
                 <canvas ref={pipCanvasRef} className="w-full h-auto block" />
               </div>
 
-              {/* Action Buttons */}
               <div className="flex flex-wrap gap-2 pt-1">
                 <button
                   type="button"
                   onClick={handleLaunchFloatingPip}
                   className="flex-1 py-3.5 px-6 bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black rounded-2xl shadow-xl text-sm"
                 >
-                  {isPipActive ? '❌ Close Floating Screen' : '📱 Launch Voice Floating Screen'}
+                  {isPipActive ? '❌ Close Floating Screen' : '📱 Launch Floating Screen & Mic'}
                 </button>
                 <button
                   type="button"
@@ -481,44 +491,39 @@ export default function OneTapFormCopilotPage() {
                     isVoiceListening ? 'bg-rose-600 text-white' : 'bg-slate-800 text-emerald-400'
                   }`}
                 >
-                  {isVoiceListening ? 'Turn Mic OFF' : '🎙️ Test Mic Here'}
+                  {isVoiceListening ? 'Stop Mic' : '🎙️ Start Mic'}
                 </button>
               </div>
             </div>
 
-            {/* Quick Voice Command Cheat Sheet */}
+            {/* Instant Touch Buttons (Guaranteed 100% Reliable Backup) */}
             <div className="lg:col-span-5 space-y-4 text-xs">
               <div className="bg-slate-900 p-5 rounded-3xl border border-slate-800 space-y-3">
                 <h3 className="text-sm font-black text-amber-400 uppercase">
-                  🗣️ Bolo Aur Screen Par Turant Dekho:
+                  👆 Instant Touch Buttons (1-Tap Zoom):
                 </h3>
                 <p className="text-slate-400 text-[11px]">
-                  Floating Card khol kar aap kisi bhi form par ja sakte hain. Bas mic par yeh bolna hai:
+                  Agar mic background noise ki wajah se catch na kare, toh niche diye gaye button par click karein—floating card turant wahi field bade font mein dikha dega:
                 </p>
 
-                <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
                   {[
-                    { cmd: 'Bolo: "Name" ya "Mera Naam"', desc: 'Candidate Name aur 10th spelling dikhegi', key: 'NAME' },
-                    { cmd: 'Bolo: "Father" ya "Papa"', desc: "Father's name bina Shri/Late ke aayega", key: 'FATHER' },
-                    { cmd: 'Bolo: "DOB" ya "Date of Birth"', desc: 'Exact DD-MM-YYYY format me aayega', key: 'DOB' },
-                    { cmd: 'Bolo: "Roll Number" ya "10th"', desc: 'Roll Code - Roll No dikhayega', key: 'ROLL' },
-                    { cmd: 'Bolo: "Aadhaar" ya "ID"', desc: 'Aadhaar / ID Card number aayega', key: 'ID' },
-                    { cmd: 'Bolo: "Bank" ya "Khata"', desc: 'Account Number aur IFSC Code dikhayega', key: 'BANK' },
-                    { cmd: 'Bolo: "All" ya "Wapas"', desc: 'Poora overview card wapas aa jayega', key: 'ALL' },
-                  ].map((c) => (
+                    { label: '👤 Name', key: 'NAME', bg: 'bg-emerald-600/20 border-emerald-500/50 text-emerald-300' },
+                    { label: "👨‍👦 Father's Name", key: 'FATHER', bg: 'bg-blue-600/20 border-blue-500/50 text-blue-300' },
+                    { label: '📅 Date of Birth', key: 'DOB', bg: 'bg-rose-600/20 border-rose-500/50 text-rose-300' },
+                    { label: '🎓 10th Roll No', key: 'ROLL', bg: 'bg-amber-600/20 border-amber-500/50 text-amber-300' },
+                    { label: '💳 Aadhaar / ID', key: 'ID', bg: 'bg-cyan-600/20 border-cyan-500/50 text-cyan-300' },
+                    { label: '🏦 Bank A/C & IFSC', key: 'BANK', bg: 'bg-fuchsia-600/20 border-fuchsia-500/50 text-fuchsia-300' },
+                    { label: '📱 Mobile Number', key: 'MOBILE', bg: 'bg-teal-600/20 border-teal-500/50 text-teal-300' },
+                    { label: '🔄 Show All Overview', key: 'ALL', bg: 'bg-slate-800 border-slate-700 text-white' },
+                  ].map((btn) => (
                     <button
-                      key={c.key}
+                      key={btn.key}
                       type="button"
-                      onClick={() => setHighlightField(c.key)}
-                      className="w-full text-left p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500 rounded-xl transition flex justify-between items-center"
+                      onClick={() => setHighlightField(btn.key)}
+                      className={`p-3 rounded-xl border font-black text-center transition hover:scale-105 ${btn.bg}`}
                     >
-                      <div>
-                        <div className="font-black text-emerald-300">{c.cmd}</div>
-                        <div className="text-[10px] text-slate-400">{c.desc}</div>
-                      </div>
-                      <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-bold">
-                        Try ↗
-                      </span>
+                      {btn.label}
                     </button>
                   ))}
                 </div>
@@ -527,11 +532,10 @@ export default function OneTapFormCopilotPage() {
           </div>
         )}
 
-        {/* TAB 2: PROFILE EDITOR (Include Bank Details) */}
         {activeTab === 'vault-editor' && (
           <div className="bg-slate-900 p-5 rounded-3xl border border-slate-800 space-y-4 text-xs">
             <h2 className="text-sm font-black text-amber-400 uppercase border-b border-slate-800 pb-2">
-              ✏️ Profile Details (Jo Voice Se Dikhana Hai)
+              ✏️ Profile Details Editor
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -566,21 +570,7 @@ export default function OneTapFormCopilotPage() {
               </div>
 
               <div>
-                <label className="block text-amber-400 mb-1 font-bold">10th Roll Code</label>
-                <input
-                  type="text"
-                  value={profile.academics[0]?.rollCode || ''}
-                  onChange={(e) => {
-                    const up = [...profile.academics];
-                    up[0].rollCode = e.target.value;
-                    setProfile({ ...profile, academics: up });
-                  }}
-                  className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-emerald-400 mb-1 font-bold">10th Roll Number</label>
+                <label className="block text-amber-400 mb-1 font-bold">10th Roll Number</label>
                 <input
                   type="text"
                   value={profile.academics[0]?.rollNumber || ''}
@@ -594,33 +584,11 @@ export default function OneTapFormCopilotPage() {
               </div>
 
               <div>
-                <label className="block text-cyan-400 mb-1 font-bold">Aadhaar / ID Card Number</label>
-                <input
-                  type="text"
-                  value={profile.idNumber}
-                  onChange={(e) => setProfile({ ...profile, idNumber: e.target.value })}
-                  className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
-                />
-              </div>
-
-              <div>
                 <label className="block text-fuchsia-400 mb-1 font-bold">Bank Account Number</label>
                 <input
                   type="text"
                   value={profile.bankAccountNo}
                   onChange={(e) => setProfile({ ...profile, bankAccountNo: e.target.value })}
-                  placeholder="e.g. 30987654321"
-                  className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-fuchsia-400 mb-1 font-bold">Bank IFSC Code</label>
-                <input
-                  type="text"
-                  value={profile.bankIfsc}
-                  onChange={(e) => setProfile({ ...profile, bankIfsc: e.target.value.toUpperCase() })}
-                  placeholder="e.g. SBIN0001234"
                   className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
                 />
               </div>
@@ -645,7 +613,7 @@ export default function OneTapFormCopilotPage() {
                 }}
                 className="px-6 py-2.5 bg-emerald-500 text-slate-950 font-black rounded-xl"
               >
-                💾 Save Details &amp; Return to Voice Card →
+                💾 Save Details →
               </button>
             </div>
           </div>
