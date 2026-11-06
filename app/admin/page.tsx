@@ -1,3 +1,4 @@
+// File: app/admin/page.tsx
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -27,6 +28,9 @@ interface Post {
   title: string;
   slug: string;
   category: string;
+  categorySlug?: string;
+  subCategory?: string;
+  subCategorySlug?: string;
   targetExamTag?: string;
   vacancyOrSeats?: string;
   publisherName: string;
@@ -60,10 +64,21 @@ interface CustomPage {
   publishedAt: string;
 }
 
-interface Category {
+export interface CategoryItem {
   id: string;
   name: string;
   slug: string;
+  parentId: string | null; // null = Main Category, string = Subcategory's Parent ID
+  parentName?: string;
+  parentSlug?: string;
+  targetExamTag: string;
+  h1Title: string;
+  metaTitle: string;
+  metaDesc: string;
+  focusKeyword: string;
+  shortIntro: string;
+  seoBottomContent: string;
+  faqs: FaqRow[];
   count: number;
 }
 
@@ -142,6 +157,7 @@ type AdminTab =
   | 'dashboard'
   | 'posts'
   | 'add-post'
+  | 'categories'
   | 'programmatic-seo'
   | 'tools-manager'
   | 'mock-tests'
@@ -149,9 +165,186 @@ type AdminTab =
   | 'partners-approval'
   | 'pages'
   | 'add-page'
-  | 'categories'
   | 'rbac-staff'
   | 'settings-backup';
+
+// ==========================================
+// DEFAULT SEO CATEGORIES & SUBCATEGORIES
+// ==========================================
+const DEFAULT_CATEGORIES: CategoryItem[] = [
+  // MAIN CATEGORIES
+  {
+    id: 'cat-1',
+    name: 'Latest Jobs',
+    slug: 'latest-jobs',
+    parentId: null,
+    targetExamTag: 'ALL',
+    h1Title: 'Latest Sarkari Jobs 2026 — Apply Online & Official Notifications',
+    metaTitle: 'Latest Government Jobs 2026 | Sarkari Naukri Online Form | CareerSathi',
+    metaDesc: 'Check all latest government jobs 2026, SSC, Railway, Banking, Police & State PSC online forms, age limit, vacancy details and free photo/signature resizer tool.',
+    focusKeyword: 'Latest Sarkari Jobs 2026',
+    shortIntro: 'Find all newly announced Central and State Government Recruitment notifications for 2026. Check eligibility, vacancy tables, important dates, and format your documents in 1 click.',
+    seoBottomContent: '<h2>Why Check Latest Government Jobs on CareerSathi?</h2><p>CareerSathi provides verified official notifications for SSC, UPSC, Railway RRB, IBPS Banking, and State Police recruitment exams along with built-in photo, 6x2cm signature, and PDF compression utilities.</p>',
+    faqs: [
+      { question: 'Which are the top upcoming government jobs in 2026?', answer: 'Major upcoming exams include SSC CGL, SSC GD Constable, RRB NTPC, IBPS PO, and Bihar/UP Police recruitments.' },
+      { question: 'How can I resize my photo and signature for online job forms?', answer: 'Use the free CareerSathi All-in-One Form Tool to automatically format your photo and 6x2cm signature in exact KB.' },
+    ],
+    count: 0,
+  },
+  {
+    id: 'cat-2',
+    name: 'Admit Card',
+    slug: 'admit-card',
+    parentId: null,
+    targetExamTag: 'ALL',
+    h1Title: 'Sarkari Exam Admit Card 2026 — Download Hall Ticket & Exam City',
+    metaTitle: 'Download Admit Card 2026 | SSC, Railway, Bank & State Exam Hall Ticket',
+    metaDesc: 'Direct official links to download 2026 exam admit cards, application status, and exam city intimation slips for SSC, RRB, UPSC, and State exams.',
+    focusKeyword: 'Admit Card 2026 Download',
+    shortIntro: 'Download your official CBT exam hall ticket, check application status, shift timing, and exam city intimation slips directly.',
+    seoBottomContent: '<h2>How to Download Your Exam Admit Card Online?</h2><p>Select your exam from the list above, click on the regional or official login link, and enter your Registration Number and Date of Birth to print your A4 Admit Card.</p>',
+    faqs: [
+      { question: 'What documents are required at the exam center along with the Admit Card?', answer: 'You must carry a printed copy of your Admit Card, 2 passport size photographs, and an original valid Photo ID (Aadhaar, PAN, or Voter ID).' },
+    ],
+    count: 0,
+  },
+  {
+    id: 'cat-3',
+    name: 'Results',
+    slug: 'results',
+    parentId: null,
+    targetExamTag: 'ALL',
+    h1Title: 'Sarkari Exam Results 2026 — Merit List, Cut-Off & Scorecard',
+    metaTitle: 'Sarkari Result 2026 | Check Exam Merit List, Cut Off Marks & Scorecard',
+    metaDesc: 'Check latest government exam results 2026, roll number wise merit lists, category-wise cut-off marks, and normalized scorecards online.',
+    focusKeyword: 'Sarkari Result 2026 Merit List',
+    shortIntro: 'Instant direct links to official exam results, selection PDF merit lists, tier-wise cut-off marks, and final scorecards.',
+    seoBottomContent: '<h2>Check Roll Number Wise Merit List & Cut-Off</h2><p>All official result PDFs and scorecard login links are updated in real time as soon as the recruiting board announces them.</p>',
+    faqs: [
+      { question: 'How to check my name in the Result Merit List PDF?', answer: 'Download the official Result PDF from the link above, press Ctrl+F (or use Search in mobile PDF reader), and type your Roll Number.' },
+    ],
+    count: 0,
+  },
+  {
+    id: 'cat-4',
+    name: 'Answer Key',
+    slug: 'answer-key',
+    parentId: null,
+    targetExamTag: 'SSC',
+    h1Title: 'Official Answer Key 2026 — Response Sheet & Instant Score Calculator',
+    metaTitle: 'Exam Answer Key 2026 | Calculate Marks from Digialm Response Sheet URL',
+    metaDesc: 'Download official provisional and final answer keys for SSC, RRB, and State exams. Paste your response sheet URL to calculate exact marks with negative marking.',
+    focusKeyword: 'Exam Answer Key 2026',
+    shortIntro: 'Download your CBT response sheet and check your exact raw score, negative marking, and accuracy using our Answer Key Analyzer.',
+    seoBottomContent: '<h2>Calculate Marks Instantly from Your Answer Key URL</h2><p>Copy your Digialm candidate response URL after logging in and paste it into the CareerSathi Answer Key Analyzer tool for instant subject-wise score calculation.</p>',
+    faqs: [
+      { question: 'How to calculate negative marking from SSC & Railway Answer Key?', answer: 'Paste your response sheet link into our free Answer Key Score Calculator to automatically deduct negative marks and see net score.' },
+    ],
+    count: 0,
+  },
+  {
+    id: 'cat-5',
+    name: 'Admission',
+    slug: 'admission',
+    parentId: null,
+    targetExamTag: 'NEET',
+    h1Title: ' Entrance Exam & University Admission 2026 — NEET, JEE, CUET & ITI',
+    metaTitle: 'Online Admission 2026 | CUET, NEET, JEE, B.Ed, ITI & Polytechnic Forms',
+    metaDesc: 'Apply online for 2026 national and state entrance exams, university admissions, counselling schedules, and seat allotment results.',
+    focusKeyword: 'Online Admission Form 2026',
+    shortIntro: 'Complete admission notifications, entrance form dates, counselling schedules, and document specifications for college and entrance exams.',
+    seoBottomContent: '<h2>Documents Required for Online Admission & Counselling</h2><p>Keep your scanned marksheet, caste/EWS certificate, and passport photo with date on photograph ready before filling entrance forms.</p>',
+    faqs: [],
+    count: 0,
+  },
+  {
+    id: 'cat-6',
+    name: 'Sarkari Yojana',
+    slug: 'sarkari-yojana',
+    parentId: null,
+    targetExamTag: 'STATE',
+    h1Title: 'Sarkari Yojana & Scholarship 2026 — Online Registration & Beneficiary Status',
+    metaTitle: 'Sarkari Yojana 2026 | Student Scholarships, Fellowship & Govt Schemes',
+    metaDesc: 'Apply online for Central and State Government welfare schemes, student scholarships, kisan yojanas, and check DBT payment status.',
+    focusKeyword: 'Sarkari Yojana 2026 Apply Online',
+    shortIntro: 'Verified guides and official portal links for National Scholarship Portal (NSP), Post-Matric Scholarships, and government welfare schemes.',
+    seoBottomContent: '<h2>Student Scholarships & DBT Schemes</h2><p>Check eligibility criteria, income certificate limits, and direct registration links for central and state scholarships.</p>',
+    faqs: [],
+    count: 0,
+  },
+
+  // HIGH-RANKING SUBCATEGORIES (Pre-linked to "Latest Jobs" cat-1)
+  {
+    id: 'sub-101',
+    name: 'SSC Exams',
+    slug: 'ssc-exams',
+    parentId: 'cat-1',
+    parentName: 'Latest Jobs',
+    parentSlug: 'latest-jobs',
+    targetExamTag: 'SSC',
+    h1Title: 'SSC Recruitment 2026 — CGL, CHSL, GD Constable, MTS & CPO Online Forms',
+    metaTitle: 'SSC Jobs 2026 | SSC CGL, GD, CHSL, MTS Notification & 6x2cm Sign Tool',
+    metaDesc: 'Apply online for all Staff Selection Commission (SSC) 2026 recruitments. Check OTR registration, live photo rules, 6x2cm signature resizer, and exam dates.',
+    focusKeyword: 'SSC Recruitment 2026',
+    shortIntro: 'All Staff Selection Commission (SSC) recruitment notifications, One-Time Registration (OTR) guides, and SSC 6x2cm signature formatting tools.',
+    seoBottomContent: '<h2>SSC 2026 Photo & 6x2cm Signature Guidelines</h2><p>Ensure your signature is resized to 6.0 cm × 2.0 cm (10KB–20KB) using the CareerSathi SSC Form Tool to prevent form rejection.</p>',
+    faqs: [
+      { question: 'What is the signature dimension for SSC forms in 2026?', answer: 'SSC requires a scanned signature of 6.0 cm width by 2.0 cm height between 10 KB and 20 KB in JPG format.' },
+    ],
+    count: 0,
+  },
+  {
+    id: 'sub-102',
+    name: 'Railway RRB Jobs',
+    slug: 'railway-rrb-jobs',
+    parentId: 'cat-1',
+    parentName: 'Latest Jobs',
+    parentSlug: 'latest-jobs',
+    targetExamTag: 'RAILWAY',
+    h1Title: 'Railway Recruitment 2026 (RRB) — NTPC, Group D, ALP & Technician Jobs',
+    metaTitle: 'Railway RRB Jobs 2026 | NTPC, Group D, ALP Online Form & Eligibility',
+    metaDesc: 'Latest Indian Railways RRB & RRC recruitment 2026 notifications for NTPC, Group D, ALP, JE, and Paramedical posts.',
+    focusKeyword: 'Railway RRB Recruitment 2026',
+    shortIntro: 'Zone-wise Indian Railway Recruitment Board (RRB) notifications, vacancy tables, medical standards, and online application links.',
+    seoBottomContent: '<h2>How to Apply for Railway RRB Exams</h2><p>Check zone-wise vacancies and prepare your white-background passport photo and running signature before submitting your RRB online application.</p>',
+    faqs: [],
+    count: 0,
+  },
+  {
+    id: 'sub-103',
+    name: 'Bihar Sarkari Jobs',
+    slug: 'bihar-sarkari-jobs',
+    parentId: 'cat-1',
+    parentName: 'Latest Jobs',
+    parentSlug: 'latest-jobs',
+    targetExamTag: 'STATE',
+    h1Title: 'Bihar Government Jobs 2026 — BPSC, BSSC, CSBC Bihar Police & Beltron',
+    metaTitle: 'Bihar Sarkari Naukri 2026 | BPSC, BSSC, Bihar Police Online Form',
+    metaDesc: 'Get fastest updates on Bihar Government Jobs 2026 including BPSC TRE Teacher, BSSC Inter/Graduate Level, Bihar Police Constable, Daroga & Jeevika.',
+    focusKeyword: 'Bihar Sarkari Jobs 2026',
+    shortIntro: 'Dedicated hub for Bihar State Government recruitment notifications (BPSC, BSSC, CSBC, BPSSC, BCECE, and Bihar Health Department).',
+    seoBottomContent: '<h2>Bihar State Exam Document Requirements</h2><p>Keep your Bihar Domicile Certificate, NCL/EWS Certificate, and 10th/12th Marksheet PDFs compressed under 100KB–200KB for BPSC and BSSC portals.</p>',
+    faqs: [],
+    count: 0,
+  },
+  {
+    id: 'sub-104',
+    name: 'Banking & Insurance',
+    slug: 'banking-jobs',
+    parentId: 'cat-1',
+    parentName: 'Latest Jobs',
+    parentSlug: 'latest-jobs',
+    targetExamTag: 'BANKING',
+    h1Title: 'Banking Jobs 2026 — IBPS PO, Clerk, SBI, RBI & LIC Recruitment',
+    metaTitle: 'Banking Jobs 2026 | IBPS, SBI, RBI, NABARD & LIC Online Form',
+    metaDesc: 'Apply online for 2026 Bank PO, Clerk, and SO exams. Includes IBPS Left Thumb Impression & Handwritten Declaration resizer tool.',
+    focusKeyword: 'Banking Jobs 2026',
+    shortIntro: 'Latest public sector bank and insurance exam notifications with built-in IBPS Left Thumb & Handwritten Declaration formatting tools.',
+    seoBottomContent: '<h2>IBPS Handwritten Declaration & Thumb Impression Specifications</h2><p>Banking exams require 4.5×3.5 cm photo, 140×60 px signature, 240×240 px left thumb impression, and 800×400 px handwritten declaration in black ink.</p>',
+    faqs: [],
+    count: 0,
+  },
+];
 
 const DEFAULT_TOOLS_CONFIG: ToolConfigItem[] = [
   {
@@ -319,10 +512,26 @@ export default function EnterpriseAdminCommandCenter() {
   const [partnerCourses, setPartnerCourses] = useState<PartnerCourse[]>([]);
   const [partnersList, setPartnersList] = useState<any[]>([]);
 
+  // Categories & Subcategories State
+  const [categories, setCategories] = useState<CategoryItem[]>(DEFAULT_CATEGORIES);
+  const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const [catName, setCatName] = useState('');
+  const [catSlug, setCatSlug] = useState('');
+  const [catParentId, setCatParentId] = useState<string>('MAIN'); // 'MAIN' or parent category ID
+  const [catTargetExam, setCatTargetExam] = useState('ALL');
+  const [catH1, setCatH1] = useState('');
+  const [catMetaTitle, setCatMetaTitle] = useState('');
+  const [catMetaDesc, setCatMetaDesc] = useState('');
+  const [catFocusKeyword, setCatFocusKeyword] = useState('');
+  const [catShortIntro, setCatShortIntro] = useState('');
+  const [catSeoBottom, setCatSeoBottom] = useState('');
+  const [catFaqs, setCatFaqs] = useState<FaqRow[]>([{ question: '', answer: '' }]);
+
   // Post Form Fields
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
   const [category, setCategory] = useState('Latest Jobs');
+  const [subCategory, setSubCategory] = useState('');
   const [targetExamTag, setTargetExamTag] = useState('SSC');
   const [vacancyOrSeats, setVacancyOrSeats] = useState('');
   const [featuredImage, setFeaturedImage] = useState('');
@@ -354,6 +563,7 @@ export default function EnterpriseAdminCommandCenter() {
   // Programmatic SEO Bulk Generator States
   const [pSeoExams, setPSeoExams] = useState('SSC CGL, SSC GD Constable, RRB NTPC, Bihar Police Constable, SBI PO');
   const [pSeoCategory, setPSeoCategory] = useState('Latest Jobs');
+  const [pSeoSubCategory, setPSeoSubCategory] = useState('');
   const [pSeoYear, setPSeoYear] = useState('2026');
   const [pSeoVacancyNote, setPSeoVacancyNote] = useState('Various Posts');
   const [pingStatusMsg, setPingStatusMsg] = useState('');
@@ -371,15 +581,13 @@ export default function EnterpriseAdminCommandCenter() {
   const [pageSlug, setPageSlug] = useState('');
   const [pageContent, setPageContent] = useState('<p>Write page content here...</p>');
 
-  // Categories State
-  const [categories, setCategories] = useState<Category[]>([
-    { id: '1', name: 'Latest Jobs', slug: 'latest-jobs', count: 0 },
-    { id: '2', name: 'Admit Card', slug: 'admit-card', count: 0 },
-    { id: '3', name: 'Results', slug: 'results', count: 0 },
-    { id: '4', name: 'Answer Key', slug: 'answer-key', count: 0 },
-    { id: '5', name: 'Admission', slug: 'admission', count: 0 },
-    { id: '6', name: 'Sarkari Yojana', slug: 'sarkari-yojana', count: 0 },
-  ]);
+  // Helper filters for Main Categories vs Subcategories
+  const mainCategories = categories.filter((c) => c.parentId === null);
+  const getSubcategoriesByParentName = (parentNameVal: string) => {
+    const parentObj = mainCategories.find((m) => m.name === parentNameVal);
+    if (!parentObj) return [];
+    return categories.filter((c) => c.parentId === parentObj.id);
+  };
 
   // ==========================================
   // 4. INITIALIZATION & STORAGE SYNC
@@ -406,12 +614,26 @@ export default function EnterpriseAdminCommandCenter() {
   };
 
   useEffect(() => {
+    let loadedCats = DEFAULT_CATEGORIES;
+    const savedCats = localStorage.getItem('careersathi_categories');
+    if (savedCats) {
+      try {
+        const parsedCats = JSON.parse(savedCats);
+        if (Array.isArray(parsedCats) && parsedCats.length > 0) {
+          loadedCats = parsedCats;
+          setCategories(parsedCats);
+        }
+      } catch {}
+    } else {
+      localStorage.setItem('careersathi_categories', JSON.stringify(DEFAULT_CATEGORIES));
+    }
+
     const savedPosts = localStorage.getItem('careersathi_posts');
     if (savedPosts) {
       try {
         const parsed = JSON.parse(savedPosts);
         setPosts(parsed);
-        updateCategoryCounts(parsed);
+        updateCategoryCounts(parsed, loadedCats);
       } catch (e) {
         console.error(e);
       }
@@ -475,10 +697,22 @@ export default function EnterpriseAdminCommandCenter() {
     }
   }, []);
 
+  const saveCategoriesToStorage = (updatedCats: CategoryItem[], currentPostsList: Post[] = posts) => {
+    const withCounts = updatedCats.map((cat) => ({
+      ...cat,
+      count:
+        cat.parentId === null
+          ? currentPostsList.filter((p) => p.category === cat.name).length
+          : currentPostsList.filter((p) => p.subCategory === cat.name).length,
+    }));
+    setCategories(withCounts);
+    localStorage.setItem('careersathi_categories', JSON.stringify(withCounts));
+  };
+
   const savePostsToStorage = (updatedPosts: Post[]) => {
     setPosts(updatedPosts);
     localStorage.setItem('careersathi_posts', JSON.stringify(updatedPosts));
-    updateCategoryCounts(updatedPosts);
+    updateCategoryCounts(updatedPosts, categories);
   };
 
   const saveRevisionsToStorage = (updatedRevs: PostRevision[]) => {
@@ -501,17 +735,182 @@ export default function EnterpriseAdminCommandCenter() {
     localStorage.setItem('careersathi_tools_config', JSON.stringify(updated));
   };
 
-  const updateCategoryCounts = (currentPosts: Post[]) => {
-    setCategories((prevCats) =>
-      prevCats.map((cat) => ({
-        ...cat,
-        count: currentPosts.filter((p) => p.category === cat.name).length,
-      }))
-    );
+  const updateCategoryCounts = (currentPosts: Post[], currentCats: CategoryItem[] = categories) => {
+    const updated = currentCats.map((cat) => ({
+      ...cat,
+      count:
+        cat.parentId === null
+          ? currentPosts.filter((p) => p.category === cat.name).length
+          : currentPosts.filter((p) => p.subCategory === cat.name).length,
+    }));
+    setCategories(updated);
+    localStorage.setItem('careersathi_categories', JSON.stringify(updated));
   };
 
   // ==========================================
-  // 5. LIVE SEO HEALTH SCORE ANALYZER (0 - 100%)
+  // 5. CATEGORY & SUBCATEGORY SEO HANDLERS
+  // ==========================================
+  const handleAICategorySeoFill = () => {
+    if (!catName.trim()) {
+      alert('Bhai, pehle Category ya Subcategory ka naam likh de!');
+      return;
+    }
+    const cleanName = catName.trim();
+    const generatedSlug =
+      catSlug.trim() ||
+      cleanName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+    setCatSlug(generatedSlug);
+
+    const parentObj = catParentId !== 'MAIN' ? mainCategories.find((m) => m.id === catParentId) : null;
+    const contextLabel = parentObj ? `${cleanName} (${parentObj.name})` : cleanName;
+
+    setCatH1(`${cleanName} 2026 — Official Notifications, Dates & Apply Online`);
+    setCatMetaTitle(`${cleanName} 2026 | Check Dates, Eligibility & Online Form | CareerSathi`);
+    setCatMetaDesc(
+      `Get latest updates on ${contextLabel} 2026. Check official notification PDF, vacancy breakdown, eligibility criteria, and format your photo/signature online for free.`
+    );
+    setCatFocusKeyword(`${cleanName} 2026`);
+    setCatShortIntro(
+      `Explore all verified updates for ${cleanName} 2026. Check application start and last dates, age limit, category-wise seats, and use our free student tools to prepare your form documents.`
+    );
+    setCatSeoBottom(`
+<h2>Complete Guide to ${cleanName} 2026</h2>
+<p>Candidates searching for <strong>${cleanName} 2026</strong> can find all direct official links, syllabus PDFs, and document upload instructions on this page. Make sure to verify your age eligibility and resize your photograph and signature using the CareerSathi Form Tool before submitting your online application.</p>
+<h3>Why Bookmark CareerSathi for ${cleanName}?</h3>
+<ul>
+  <li>Instant real-time alerts for notifications, admit cards, answer keys, and results.</li>
+  <li>100% free browser-based Photo, 6x2cm Signature, and Exact KB PDF Compressor tools.</li>
+  <li>Direct official portal links without confusing redirects.</li>
+</ul>`);
+    setCatFaqs([
+      {
+        question: `How can I apply online for ${cleanName} 2026?`,
+        answer: `Click on the specific exam post listed under ${cleanName}, verify your eligibility in the notification table, format your photo/signature using our free tool, and click the Apply Online link.`,
+      },
+      {
+        question: `Where can I check the latest dates for ${cleanName}?`,
+        answer: `All important start dates, last dates, and CBT exam schedules are updated daily in the ${cleanName} table above.`,
+      },
+    ]);
+  };
+
+  const handleSaveCategory = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!catName.trim() || !catSlug.trim()) {
+      alert('Please enter Category/Subcategory Name and Slug!');
+      return;
+    }
+
+    const parentObj = catParentId !== 'MAIN' ? mainCategories.find((m) => m.id === catParentId) : null;
+
+    if (editingCatId) {
+      const updated = categories.map((c) => {
+        if (c.id === editingCatId) {
+          return {
+            ...c,
+            name: catName.trim(),
+            slug: catSlug.trim(),
+            parentId: parentObj ? parentObj.id : null,
+            parentName: parentObj ? parentObj.name : undefined,
+            parentSlug: parentObj ? parentObj.slug : undefined,
+            targetExamTag: catTargetExam,
+            h1Title: catH1 || `${catName.trim()} 2026`,
+            metaTitle: catMetaTitle || `${catName.trim()} 2026 | CareerSathi`,
+            metaDesc: catMetaDesc || catShortIntro,
+            focusKeyword: catFocusKeyword || catName.trim(),
+            shortIntro: catShortIntro,
+            seoBottomContent: catSeoBottom,
+            faqs: catFaqs.filter((f) => f.question.trim() && f.answer.trim()),
+          };
+        }
+        return c;
+      });
+      saveCategoriesToStorage(updated);
+      logAuditAction('Updated Category/Subcategory SEO', catName);
+      alert('✅ Category / Subcategory SEO Updated!');
+    } else {
+      const newCat: CategoryItem = {
+        id: `cat-${Date.now()}`,
+        name: catName.trim(),
+        slug: catSlug.trim(),
+        parentId: parentObj ? parentObj.id : null,
+        parentName: parentObj ? parentObj.name : undefined,
+        parentSlug: parentObj ? parentObj.slug : undefined,
+        targetExamTag: catTargetExam,
+        h1Title: catH1 || `${catName.trim()} 2026 — Official Updates & Online Form`,
+        metaTitle: catMetaTitle || `${catName.trim()} 2026 | CareerSathi`,
+        metaDesc:
+          catMetaDesc ||
+          `Check latest updates, dates, and online links for ${catName.trim()} 2026 on CareerSathi.`,
+        focusKeyword: catFocusKeyword || `${catName.trim()} 2026`,
+        shortIntro:
+          catShortIntro ||
+          `All official notifications, dates, and direct links for ${catName.trim()} 2026.`,
+        seoBottomContent:
+          catSeoBottom ||
+          `<h2>About ${catName.trim()} 2026</h2><p>Stay updated with all official announcements for ${catName.trim()}.</p>`,
+        faqs: catFaqs.filter((f) => f.question.trim() && f.answer.trim()),
+        count: 0,
+      };
+      saveCategoriesToStorage([...categories, newCat]);
+      logAuditAction(
+        parentObj ? `Created Subcategory under ${parentObj.name}` : 'Created Main Category',
+        catName
+      );
+      alert('🚀 New Category / Subcategory Created with Full SEO Schema!');
+    }
+
+    resetCategoryForm();
+  };
+
+  const resetCategoryForm = () => {
+    setEditingCatId(null);
+    setCatName('');
+    setCatSlug('');
+    setCatParentId('MAIN');
+    setCatTargetExam('ALL');
+    setCatH1('');
+    setCatMetaTitle('');
+    setCatMetaDesc('');
+    setCatFocusKeyword('');
+    setCatShortIntro('');
+    setCatSeoBottom('');
+    setCatFaqs([{ question: '', answer: '' }]);
+  };
+
+  const handleEditCategoryClick = (cat: CategoryItem) => {
+    setEditingCatId(cat.id);
+    setCatName(cat.name);
+    setCatSlug(cat.slug);
+    setCatParentId(cat.parentId || 'MAIN');
+    setCatTargetExam(cat.targetExamTag || 'ALL');
+    setCatH1(cat.h1Title || '');
+    setCatMetaTitle(cat.metaTitle || '');
+    setCatMetaDesc(cat.metaDesc || '');
+    setCatFocusKeyword(cat.focusKeyword || '');
+    setCatShortIntro(cat.shortIntro || '');
+    setCatSeoBottom(cat.seoBottomContent || '');
+    setCatFaqs(cat.faqs?.length ? cat.faqs : [{ question: '', answer: '' }]);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDeleteCategory = (cat: CategoryItem) => {
+    if (!hasPermission('delete_content')) {
+      alert('🔒 Only Super Admin can delete categories!');
+      return;
+    }
+    if (confirm(`Delete "${cat.name}"?`)) {
+      const updated = categories.filter((c) => c.id !== cat.id && c.parentId !== cat.id);
+      saveCategoriesToStorage(updated);
+      logAuditAction('Deleted Category/Subcategory', cat.name);
+    }
+  };
+
+  // ==========================================
+  // 6. LIVE SEO HEALTH SCORE ANALYZER (0 - 100%)
   // ==========================================
   const calculateLiveSeoScore = () => {
     let score = 0;
@@ -545,7 +944,7 @@ export default function EnterpriseAdminCommandCenter() {
   const seoHealth = calculateLiveSeoScore();
 
   // ==========================================
-  // 6. AI AUTO-GENERATOR & POST HANDLERS
+  // 7. AI AUTO-GENERATOR & POST HANDLERS
   // ==========================================
   const handleAIGenerate = () => {
     if (!title.trim()) {
@@ -563,18 +962,29 @@ export default function EnterpriseAdminCommandCenter() {
     else detectedCategory = 'Latest Jobs';
 
     let detectedExam = 'SSC';
-    if (lowerTitle.includes('ibps') || lowerTitle.includes('sbi') || lowerTitle.includes('rbi') || lowerTitle.includes('bank'))
+    let detectedSub = subCategory;
+    if (lowerTitle.includes('ibps') || lowerTitle.includes('sbi') || lowerTitle.includes('rbi') || lowerTitle.includes('bank')) {
       detectedExam = 'BANKING';
-    else if (lowerTitle.includes('rrb') || lowerTitle.includes('railway') || lowerTitle.includes('ntpc'))
+      detectedSub = 'Banking & Insurance';
+    } else if (lowerTitle.includes('rrb') || lowerTitle.includes('railway') || lowerTitle.includes('ntpc')) {
       detectedExam = 'RAILWAY';
-    else if (lowerTitle.includes('upsc') || lowerTitle.includes('ias') || lowerTitle.includes('nda'))
-      detectedExam = 'UPSC';
-    else if (lowerTitle.includes('neet')) detectedExam = 'NEET';
-    else if (lowerTitle.includes('jee') || lowerTitle.includes('cuet')) detectedExam = 'JEE';
-    else if (lowerTitle.includes('police') || lowerTitle.includes('bpsc') || lowerTitle.includes('uppsc'))
+      detectedSub = 'Railway RRB Jobs';
+    } else if (lowerTitle.includes('bihar') || lowerTitle.includes('bpsc') || lowerTitle.includes('bssc') || lowerTitle.includes('csbc')) {
       detectedExam = 'STATE';
+      detectedSub = 'Bihar Sarkari Jobs';
+    } else if (lowerTitle.includes('ssc')) {
+      detectedExam = 'SSC';
+      detectedSub = 'SSC Exams';
+    } else if (lowerTitle.includes('upsc') || lowerTitle.includes('ias') || lowerTitle.includes('nda')) {
+      detectedExam = 'UPSC';
+    } else if (lowerTitle.includes('neet')) {
+      detectedExam = 'NEET';
+    } else if (lowerTitle.includes('jee') || lowerTitle.includes('cuet')) {
+      detectedExam = 'JEE';
+    }
 
     setCategory(detectedCategory);
+    if (detectedSub) setSubCategory(detectedSub);
     setTargetExamTag(detectedExam);
     setFocusKeyword(title.split(' ').slice(0, 4).join(' '));
     setShortDescription(
@@ -639,6 +1049,24 @@ export default function EnterpriseAdminCommandCenter() {
       return;
     }
 
+    const mainCatObj = mainCategories.find((c) => c.name === category);
+    const subCatObj = categories.find((c) => c.parentId !== null && c.name === subCategory);
+
+    const categorySlugVal =
+      mainCatObj?.slug ||
+      category
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+
+    const subCategorySlugVal = subCategory
+      ? subCatObj?.slug ||
+        subCategory
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '')
+      : '';
+
     const nowDateTime = new Date().toLocaleString('en-IN', {
       day: 'numeric',
       month: 'short',
@@ -667,6 +1095,9 @@ export default function EnterpriseAdminCommandCenter() {
             title,
             slug,
             category,
+            categorySlug: categorySlugVal,
+            subCategory: subCategory || undefined,
+            subCategorySlug: subCategorySlugVal || undefined,
             targetExamTag,
             vacancyOrSeats,
             publisherName: currentStaff.name,
@@ -695,6 +1126,9 @@ export default function EnterpriseAdminCommandCenter() {
         title,
         slug,
         category,
+        categorySlug: categorySlugVal,
+        subCategory: subCategory || undefined,
+        subCategorySlug: subCategorySlugVal || undefined,
         targetExamTag,
         vacancyOrSeats,
         publisherName: currentStaff.name,
@@ -734,6 +1168,7 @@ export default function EnterpriseAdminCommandCenter() {
   const resetForm = () => {
     setTitle('');
     setSlug('');
+    setSubCategory('');
     setVacancyOrSeats('');
     setFeaturedImage('');
     setShortDescription('');
@@ -758,6 +1193,7 @@ export default function EnterpriseAdminCommandCenter() {
     setTitle(post.title);
     setSlug(post.slug);
     setCategory(post.category);
+    setSubCategory(post.subCategory || '');
     setTargetExamTag(post.targetExamTag || 'SSC');
     setVacancyOrSeats(post.vacancyOrSeats || '');
     setFeaturedImage(post.featuredImage);
@@ -784,7 +1220,7 @@ export default function EnterpriseAdminCommandCenter() {
   };
 
   // ==========================================
-  // 7. ENTERPRISE PROGRAMMATIC SEO BULK ENGINE
+  // 8. ENTERPRISE PROGRAMMATIC SEO BULK ENGINE
   // ==========================================
   const handleRunProgrammaticSeoBatch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -799,6 +1235,9 @@ export default function EnterpriseAdminCommandCenter() {
       .filter(Boolean);
 
     if (examNames.length === 0) return;
+
+    const mainCatObj = mainCategories.find((c) => c.name === pSeoCategory);
+    const subCatObj = categories.find((c) => c.parentId !== null && c.name === pSeoSubCategory);
 
     const nowStr = new Date().toLocaleString('en-IN', {
       day: 'numeric',
@@ -818,6 +1257,9 @@ export default function EnterpriseAdminCommandCenter() {
         title: fullTitle,
         slug: slugVal,
         category: pSeoCategory,
+        categorySlug: mainCatObj?.slug || 'latest-jobs',
+        subCategory: pSeoSubCategory || undefined,
+        subCategorySlug: subCatObj?.slug || undefined,
         targetExamTag: examName.toUpperCase().includes('SSC')
           ? 'SSC'
           : examName.toUpperCase().includes('RRB')
@@ -866,7 +1308,7 @@ export default function EnterpriseAdminCommandCenter() {
   };
 
   // ==========================================
-  // 8. MOCK TESTS BUILDER (100% SYNCED KEYS)
+  // 9. MOCK TESTS BUILDER (100% SYNCED KEYS)
   // ==========================================
   const handleAIAddSampleQuestions = () => {
     const sampleQs: Question[] = [
@@ -933,13 +1375,14 @@ export default function EnterpriseAdminCommandCenter() {
   };
 
   // ==========================================
-  // 9. FULL DATABASE JSON BACKUP & RESTORE
+  // 10. FULL DATABASE JSON BACKUP & RESTORE
   // ==========================================
   const handleExportFullBackup = () => {
     const backupPayload = {
       exportedAt: new Date().toISOString(),
       platform: 'CareerSathi Enterprise CMS',
       posts,
+      categories,
       revisions,
       pages,
       mockTests,
@@ -966,6 +1409,7 @@ export default function EnterpriseAdminCommandCenter() {
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target?.result as string);
+        if (data.categories) saveCategoriesToStorage(data.categories, data.posts || posts);
         if (data.posts) savePostsToStorage(data.posts);
         if (data.pages) savePagesToStorage(data.pages);
         if (data.mockTests) saveMockTestsToStorage(data.mockTests);
@@ -993,7 +1437,8 @@ export default function EnterpriseAdminCommandCenter() {
   const filteredPosts = posts.filter(
     (p) =>
       p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.category.toLowerCase().includes(searchQuery.toLowerCase())
+      p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.subCategory && p.subCategory.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const pendingPartnersCount = partnersList.filter((p) => p.status === 'pending').length;
@@ -1013,7 +1458,7 @@ export default function EnterpriseAdminCommandCenter() {
               <p className="text-[11px] text-slate-400">Enterprise RBAC &amp; SEO Command Center</p>
             </div>
             <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold">
-              v3.6 Pro
+              v3.8 SEO
             </span>
           </div>
 
@@ -1086,6 +1531,24 @@ export default function EnterpriseAdminCommandCenter() {
               }`}
             >
               ➕ Create Post (Live SEO Score)
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                resetCategoryForm();
+                setActiveTab('categories');
+              }}
+              className={`w-full text-left px-3 py-2.5 rounded-xl transition flex items-center justify-between ${
+                activeTab === 'categories'
+                  ? 'bg-blue-600 text-white shadow-lg'
+                  : 'hover:bg-slate-800 text-cyan-300'
+              }`}
+            >
+              <span>🗂️ Categories &amp; Subcategories SEO</span>
+              <span className="bg-slate-800 text-cyan-300 px-2 py-0.5 rounded-full text-[10px]">
+                {categories.length}
+              </span>
             </button>
 
             <button
@@ -1210,9 +1673,7 @@ export default function EnterpriseAdminCommandCenter() {
           <div className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-4 bg-slate-900 p-5 rounded-2xl border border-slate-800">
               <div>
-                <h1 className="text-2xl font-black text-white">
-                  👑 Executive Command Center
-                </h1>
+                <h1 className="text-2xl font-black text-white">👑 Executive Command Center</h1>
                 <p className="text-xs text-slate-400">
                   Logged in as <strong className="text-amber-400">{currentStaff.name}</strong> • Role:{' '}
                   <strong className="uppercase text-emerald-400">{currentStaff.role}</strong>
@@ -1231,17 +1692,20 @@ export default function EnterpriseAdminCommandCenter() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => {
+                    resetCategoryForm();
+                    setActiveTab('categories');
+                  }}
+                  className="px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-black shadow"
+                >
+                  🗂️ Manage Categories &amp; Subcategories
+                </button>
+                <button
+                  type="button"
                   onClick={() => setActiveTab('programmatic-seo')}
                   className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-black shadow"
                 >
                   🚀 Bulk SEO Generator
-                </button>
-                <button
-                  type="button"
-                  onClick={handleExportFullBackup}
-                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700"
-                >
-                  💾 Export Backup (.JSON)
                 </button>
               </div>
             </div>
@@ -1252,6 +1716,14 @@ export default function EnterpriseAdminCommandCenter() {
                 <span className="text-[11px] text-slate-400 font-bold uppercase">Live Exam Posts</span>
                 <div className="text-3xl font-black text-blue-400 mt-1">{posts.length}</div>
                 <span className="text-[10px] text-emerald-400 font-bold">✓ JSON-LD Schema Active</span>
+              </div>
+
+              <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800">
+                <span className="text-[11px] text-slate-400 font-bold uppercase">SEO Categories &amp; Subs</span>
+                <div className="text-3xl font-black text-cyan-400 mt-1">
+                  {mainCategories.length} / {categories.length - mainCategories.length}
+                </div>
+                <span className="text-[10px] text-slate-400">Main / Subcategory Silos</span>
               </div>
 
               <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800">
@@ -1266,14 +1738,6 @@ export default function EnterpriseAdminCommandCenter() {
                 <span className="text-[11px] text-slate-400 font-bold uppercase">CBT Mock Tests</span>
                 <div className="text-3xl font-black text-emerald-400 mt-1">{mockTests.length}</div>
                 <span className="text-[10px] text-slate-400">Synced with Homepage</span>
-              </div>
-
-              <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800">
-                <span className="text-[11px] text-slate-400 font-bold uppercase">Partner Courses</span>
-                <div className="text-3xl font-black text-purple-400 mt-1">{partnerCourses.length}</div>
-                <span className="text-[10px] text-amber-300 font-bold">
-                  {pendingPartnersCount} Pending Approvals
-                </span>
               </div>
             </div>
 
@@ -1356,7 +1820,370 @@ export default function EnterpriseAdminCommandCenter() {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 2: PROGRAMMATIC SEO ENGINE (BULK GENERATOR)           */}
+        {/* TAB 2: CATEGORIES & SUBCATEGORIES SEO SILO MANAGER        */}
+        {/* ========================================================= */}
+        {activeTab === 'categories' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 text-xs">
+            {/* LEFT FORM: CREATE / EDIT CATEGORY OR SUBCATEGORY WITH FULL SEO */}
+            <div className="lg:col-span-6 space-y-4">
+              <form
+                onSubmit={handleSaveCategory}
+                className="bg-slate-900 p-5 rounded-2xl border border-cyan-500/40 space-y-4 shadow-xl"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                  <div>
+                    <span className="text-[10px] bg-cyan-500 text-slate-950 font-black px-2 py-0.5 rounded uppercase">
+                      Google Silo SEO Architecture
+                    </span>
+                    <h2 className="text-lg font-black text-white mt-1">
+                      {editingCatId ? '✏️ Edit Category / Subcategory SEO' : '➕ Create Category or Subcategory'}
+                    </h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAICategorySeoFill}
+                    className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black rounded-lg shadow text-[11px]"
+                  >
+                    ✨ 1-Click AI SEO Auto-Fill
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">
+                      Hierarchy Type (Main vs Subcategory)
+                    </label>
+                    <select
+                      value={catParentId}
+                      onChange={(e) => setCatParentId(e.target.value)}
+                      className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-cyan-300 font-bold"
+                    >
+                      <option value="MAIN">📁 Main Primary Category (Top Level)</option>
+                      {mainCategories.map((mc) => (
+                        <option key={mc.id} value={mc.id}>
+                          ↳ Subcategory under: {mc.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">
+                      Target Exam Tag (For Tools &amp; Courses)
+                    </label>
+                    <select
+                      value={catTargetExam}
+                      onChange={(e) => setCatTargetExam(e.target.value)}
+                      className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-amber-300 font-bold"
+                    >
+                      <option value="ALL">ALL EXAMS</option>
+                      <option value="SSC">SSC</option>
+                      <option value="RAILWAY">RAILWAY (RRB)</option>
+                      <option value="BANKING">BANKING (IBPS/SBI)</option>
+                      <option value="UPSC">UPSC</option>
+                      <option value="STATE">STATE POLICE / PSC</option>
+                      <option value="NEET">NEET / JEE / ADMISSION</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">
+                      Category / Subcategory Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={catName}
+                      onChange={(e) => {
+                        setCatName(e.target.value);
+                        setCatSlug(
+                          e.target.value
+                            .toLowerCase()
+                            .replace(/[^a-z0-9]+/g, '-')
+                            .replace(/(^-|-$)/g, '')
+                        );
+                      }}
+                      placeholder="e.g. UP Sarkari Jobs or Defence Jobs"
+                      className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">SEO URL Slug *</label>
+                    <input
+                      type="text"
+                      required
+                      value={catSlug}
+                      onChange={(e) => setCatSlug(e.target.value)}
+                      placeholder="e.g. up-sarkari-jobs"
+                      className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-400 font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-emerald-400 mb-1">
+                    SEO Page H1 Heading (Shown at Top of Category Page)
+                  </label>
+                  <input
+                    type="text"
+                    value={catH1}
+                    onChange={(e) => setCatH1(e.target.value)}
+                    placeholder="e.g. Bihar Sarkari Jobs 2026 — Apply Online & Notification"
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-indigo-400 mb-1">
+                      Google Meta Title (60 chars)
+                    </label>
+                    <input
+                      type="text"
+                      value={catMetaTitle}
+                      onChange={(e) => setCatMetaTitle(e.target.value)}
+                      placeholder="Meta Title for Google Search"
+                      className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-indigo-400 mb-1">Focus Keyword</label>
+                    <input
+                      type="text"
+                      value={catFocusKeyword}
+                      onChange={(e) => setCatFocusKeyword(e.target.value)}
+                      placeholder="e.g. Bihar Government Jobs 2026"
+                      className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-amber-300 font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-indigo-400 mb-1">
+                    Google Meta Description (155 chars)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={catMetaDesc}
+                    onChange={(e) => setCatMetaDesc(e.target.value)}
+                    placeholder="High-CTR Meta Description..."
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">
+                    Top Intro Summary (Below H1 on Landing Page)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={catShortIntro}
+                    onChange={(e) => setCatShortIntro(e.target.value)}
+                    placeholder="2-line intro text helping students understand this category..."
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-amber-400 mb-1">
+                    Bottom Long-Form SEO Content (HTML Supported for Google Ranking)
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={catSeoBottom}
+                    onChange={(e) => setCatSeoBottom(e.target.value)}
+                    placeholder="<h2>Complete Guide...</h2><p>Rich SEO content at the bottom of the category page...</p>"
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
+                  />
+                </div>
+
+                {/* Category FAQs for Rich Snippet Schema */}
+                <div className="space-y-2 border-t border-slate-800 pt-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-emerald-400">
+                      ❓ Category FAQ Schema (Google Rich Snippets)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCatFaqs([...catFaqs, { question: '', answer: '' }])}
+                      className="px-2.5 py-1 bg-slate-800 text-white rounded-lg font-bold"
+                    >
+                      + Add FAQ
+                    </button>
+                  </div>
+                  {catFaqs.map((fq, idx) => (
+                    <div key={idx} className="space-y-1.5 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                      <input
+                        type="text"
+                        placeholder="FAQ Question"
+                        value={fq.question}
+                        onChange={(e) => {
+                          const up = [...catFaqs];
+                          up[idx].question = e.target.value;
+                          setCatFaqs(up);
+                        }}
+                        className="w-full p-2 bg-slate-900 border border-slate-700 rounded-lg text-white font-bold"
+                      />
+                      <input
+                        type="text"
+                        placeholder="FAQ Answer"
+                        value={fq.answer}
+                        onChange={(e) => {
+                          const up = [...catFaqs];
+                          up[idx].answer = e.target.value;
+                          setCatFaqs(up);
+                        }}
+                        className="w-full p-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-300"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    className="flex-1 py-3.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black rounded-xl shadow-lg"
+                  >
+                    {editingCatId ? '💾 Update Category SEO' : '🚀 Save Category / Subcategory'}
+                  </button>
+                  {editingCatId && (
+                    <button
+                      type="button"
+                      onClick={resetCategoryForm}
+                      className="px-4 py-3.5 bg-slate-800 text-slate-300 font-bold rounded-xl"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+
+            {/* RIGHT LIST: HIERARCHICAL TREE OF CATEGORIES & SUBCATEGORIES */}
+            <div className="lg:col-span-6 space-y-4">
+              <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div>
+                    <h3 className="text-base font-black text-white">
+                      🌳 Live Category &amp; Subcategory SEO Tree
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      Both Main Categories and Subcategories render via unified SEO component `/category/[...slug]`
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {mainCategories.map((mainCat) => {
+                    const childSubs = categories.filter((c) => c.parentId === mainCat.id);
+                    return (
+                      <div
+                        key={mainCat.id}
+                        className="bg-slate-950 rounded-2xl border border-slate-800 p-4 space-y-3"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-black text-amber-400">
+                                📁 {mainCat.name}
+                              </span>
+                              <span className="px-2 py-0.5 bg-slate-800 text-slate-300 rounded-full text-[10px] font-bold">
+                                {mainCat.count} Posts
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-500 font-mono">
+                              /category/{mainCat.slug}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <Link
+                              href={`/category/${mainCat.slug}`}
+                              target="_blank"
+                              className="px-2.5 py-1 bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 rounded-lg font-bold"
+                            >
+                              View Page ↗
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => handleEditCategoryClick(mainCat)}
+                              className="px-2.5 py-1 bg-blue-600/30 text-blue-300 rounded-lg font-bold"
+                            >
+                              Edit SEO
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                resetCategoryForm();
+                                setCatParentId(mainCat.id);
+                              }}
+                              className="px-2.5 py-1 bg-cyan-600/30 text-cyan-300 rounded-lg font-bold"
+                            >
+                              + Add Sub
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Subcategories List */}
+                        {childSubs.length > 0 && (
+                          <div className="pl-4 border-l-2 border-slate-800 space-y-2 pt-1">
+                            {childSubs.map((sub) => (
+                              <div
+                                key={sub.id}
+                                className="p-2.5 bg-slate-900 rounded-xl border border-slate-800/80 flex flex-wrap items-center justify-between gap-2"
+                              >
+                                <div>
+                                  <div className="font-bold text-cyan-300 flex items-center gap-2">
+                                    <span>↳ {sub.name}</span>
+                                    <span className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">
+                                      {sub.count} Posts
+                                    </span>
+                                  </div>
+                                  <div className="text-[10px] text-slate-500 font-mono">
+                                    /category/{mainCat.slug}/{sub.slug}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <Link
+                                    href={`/category/${mainCat.slug}/${sub.slug}`}
+                                    target="_blank"
+                                    className="px-2 py-1 bg-slate-800 text-emerald-300 rounded font-bold text-[10px]"
+                                  >
+                                    View ↗
+                                  </Link>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditCategoryClick(sub)}
+                                    className="px-2 py-1 bg-blue-600/20 text-blue-300 rounded font-bold text-[10px]"
+                                  >
+                                    Edit SEO
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteCategory(sub)}
+                                    className="px-2 py-1 bg-rose-950 text-rose-400 rounded font-bold text-[10px]"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* TAB 3: PROGRAMMATIC SEO ENGINE (BULK GENERATOR)           */}
         {/* ========================================================= */}
         {activeTab === 'programmatic-seo' && (
           <div className="max-w-4xl space-y-6">
@@ -1370,7 +2197,7 @@ export default function EnterpriseAdminCommandCenter() {
                     🚀 Programmatic SEO Bulk Page Generator
                   </h1>
                   <p className="text-xs text-slate-400">
-                    Comma-separated exams likho aur 1 click mein saare SEO-optimized notifications, FAQs, internal tool links aur Schema ready karo!
+                    Comma-separated exams likho aur 1 click mein Category + Subcategory ke sath saare SEO notifications ready karo!
                   </p>
                 </div>
               </div>
@@ -1395,15 +2222,18 @@ export default function EnterpriseAdminCommandCenter() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                   <div>
-                    <label className="block font-bold text-slate-300 mb-1">2. Target Category:</label>
+                    <label className="block font-bold text-slate-300 mb-1">2. Main Category:</label>
                     <select
                       value={pSeoCategory}
-                      onChange={(e) => setPSeoCategory(e.target.value)}
+                      onChange={(e) => {
+                        setPSeoCategory(e.target.value);
+                        setPSeoSubCategory('');
+                      }}
                       className="w-full p-3 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold"
                     >
-                      {categories.map((c) => (
+                      {mainCategories.map((c) => (
                         <option key={c.id} value={c.name}>
                           {c.name}
                         </option>
@@ -1412,7 +2242,23 @@ export default function EnterpriseAdminCommandCenter() {
                   </div>
 
                   <div>
-                    <label className="block font-bold text-slate-300 mb-1">3. Target Year:</label>
+                    <label className="block font-bold text-cyan-300 mb-1">3. Subcategory (Optional):</label>
+                    <select
+                      value={pSeoSubCategory}
+                      onChange={(e) => setPSeoSubCategory(e.target.value)}
+                      className="w-full p-3 bg-slate-950 border border-slate-700 rounded-xl text-cyan-300 font-bold"
+                    >
+                      <option value="">-- All / None --</option>
+                      {getSubcategoriesByParentName(pSeoCategory).map((sub) => (
+                        <option key={sub.id} value={sub.name}>
+                          {sub.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-300 mb-1">4. Target Year:</label>
                     <input
                       type="text"
                       value={pSeoYear}
@@ -1423,7 +2269,7 @@ export default function EnterpriseAdminCommandCenter() {
 
                   <div>
                     <label className="block font-bold text-slate-300 mb-1">
-                      4. Vacancy / Badge Note:
+                      5. Vacancy / Badge Note:
                     </label>
                     <input
                       type="text"
@@ -1447,7 +2293,7 @@ export default function EnterpriseAdminCommandCenter() {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 3: STUDENT TOOLS & SEO CONTROLLER                     */}
+        {/* TAB 4: STUDENT TOOLS & SEO CONTROLLER                     */}
         {/* ========================================================= */}
         {activeTab === 'tools-manager' && (
           <div className="space-y-6 max-w-5xl">
@@ -1572,7 +2418,7 @@ export default function EnterpriseAdminCommandCenter() {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 4: ALL POSTS LIST                                     */}
+        {/* TAB 5: ALL POSTS LIST                                     */}
         {/* ========================================================= */}
         {activeTab === 'posts' && (
           <div className="space-y-5">
@@ -1592,7 +2438,7 @@ export default function EnterpriseAdminCommandCenter() {
 
             <input
               type="text"
-              placeholder="🔍 Search posts by title or category..."
+              placeholder="🔍 Search posts by title, category, or subcategory..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white"
@@ -1603,7 +2449,9 @@ export default function EnterpriseAdminCommandCenter() {
                 <thead className="bg-slate-950">
                   <tr>
                     <th className="px-4 py-3 text-left font-bold text-slate-400">Title &amp; Slug</th>
-                    <th className="px-4 py-3 text-left font-bold text-slate-400">Category &amp; Target</th>
+                    <th className="px-4 py-3 text-left font-bold text-slate-400">
+                      Category &amp; Subcategory
+                    </th>
                     <th className="px-4 py-3 text-left font-bold text-slate-400">Publisher</th>
                     <th className="px-4 py-3 text-right font-bold text-slate-400">Actions</th>
                   </tr>
@@ -1626,6 +2474,11 @@ export default function EnterpriseAdminCommandCenter() {
                           <span className="px-2 py-0.5 bg-slate-800 rounded text-slate-200 font-bold">
                             {p.category}
                           </span>
+                          {p.subCategory && (
+                            <span className="ml-1.5 px-2 py-0.5 bg-cyan-500/20 text-cyan-300 rounded font-bold text-[10px]">
+                              ↳ {p.subCategory}
+                            </span>
+                          )}
                           {p.targetExamTag && (
                             <span className="ml-1.5 px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded font-bold text-[10px]">
                               {p.targetExamTag}
@@ -1669,7 +2522,7 @@ export default function EnterpriseAdminCommandCenter() {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 5: ADD / EDIT POST WITH LIVE 100-PT SEO SCORECARD     */}
+        {/* TAB 6: ADD / EDIT POST WITH CATEGORY + SUBCATEGORY        */}
         {/* ========================================================= */}
         {activeTab === 'add-post' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -1690,15 +2543,20 @@ export default function EnterpriseAdminCommandCenter() {
               {!showPreview ? (
                 <form onSubmit={handleSubmitPost} className="space-y-5 text-xs">
                   <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                       <div>
-                        <label className="block font-bold text-slate-300 mb-1">Category</label>
+                        <label className="block font-bold text-slate-300 mb-1">
+                          1. Main Category *
+                        </label>
                         <select
                           value={category}
-                          onChange={(e) => setCategory(e.target.value)}
+                          onChange={(e) => {
+                            setCategory(e.target.value);
+                            setSubCategory('');
+                          }}
                           className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold"
                         >
-                          {categories.map((c) => (
+                          {mainCategories.map((c) => (
                             <option key={c.id} value={c.name}>
                               {c.name}
                             </option>
@@ -1707,8 +2565,33 @@ export default function EnterpriseAdminCommandCenter() {
                       </div>
 
                       <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="font-bold text-cyan-300">2. Subcategory</label>
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab('categories')}
+                            className="text-[10px] text-amber-400 hover:underline font-bold"
+                          >
+                            + Manage
+                          </button>
+                        </div>
+                        <select
+                          value={subCategory}
+                          onChange={(e) => setSubCategory(e.target.value)}
+                          className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-cyan-300 font-bold"
+                        >
+                          <option value="">-- General / No Subcategory --</option>
+                          {getSubcategoriesByParentName(category).map((sub) => (
+                            <option key={sub.id} value={sub.name}>
+                              {sub.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
                         <label className="block font-bold text-slate-300 mb-1">
-                          Target Exam Tag (For Course Match)
+                          3. Target Exam Tag
                         </label>
                         <select
                           value={targetExamTag}
@@ -1727,7 +2610,7 @@ export default function EnterpriseAdminCommandCenter() {
 
                       <div>
                         <label className="block font-bold text-slate-300 mb-1">
-                          Vacancy / Seats Badge
+                          4. Vacancy Badge
                         </label>
                         <input
                           type="text"
@@ -1747,7 +2630,7 @@ export default function EnterpriseAdminCommandCenter() {
                           onClick={handleAIGenerate}
                           className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-[11px] font-black rounded-lg shadow"
                         >
-                          ✨ 1-Click AI Auto-Fill Post + SEO + Tool Links
+                          ✨ 1-Click AI Auto-Fill Post + Category + SEO
                         </button>
                       </div>
                       <input
@@ -1763,7 +2646,7 @@ export default function EnterpriseAdminCommandCenter() {
                               .replace(/(^-|-$)/g, '')
                           );
                         }}
-                        placeholder="e.g. SSC CGL 2026 Online Form"
+                        placeholder="e.g. Bihar BPSC 72nd Combined Competitive Exam 2026 Online Form"
                         className="w-full p-3 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold text-sm"
                       />
                     </div>
@@ -2039,7 +2922,7 @@ export default function EnterpriseAdminCommandCenter() {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 6: CBT MOCK TESTS MANAGER & BUILDER                   */}
+        {/* TAB 7: CBT MOCK TESTS MANAGER & BUILDER                   */}
         {/* ========================================================= */}
         {activeTab === 'mock-tests' && (
           <div className="space-y-5 max-w-5xl">
@@ -2205,7 +3088,7 @@ export default function EnterpriseAdminCommandCenter() {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 7: PARTNERS & CONTEXTUAL COURSES APPROVAL             */}
+        {/* TAB 8: PARTNERS & CONTEXTUAL COURSES APPROVAL             */}
         {/* ========================================================= */}
         {activeTab === 'partners-approval' && (
           <div className="space-y-6 max-w-5xl text-xs">
@@ -2276,7 +3159,7 @@ export default function EnterpriseAdminCommandCenter() {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 8: TEAM RBAC & SECURITY AUDIT LOGS                    */}
+        {/* TAB 9: TEAM RBAC & SECURITY AUDIT LOGS                    */}
         {/* ========================================================= */}
         {activeTab === 'rbac-staff' && (
           <div className="space-y-6 max-w-5xl text-xs">
@@ -2361,7 +3244,7 @@ export default function EnterpriseAdminCommandCenter() {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 9: STATIC PAGES & GLOBAL BACKUP                       */}
+        {/* TAB 10: STATIC PAGES & GLOBAL BACKUP                      */}
         {/* ========================================================= */}
         {(activeTab === 'pages' || activeTab === 'add-page') && (
           <div className="space-y-5 max-w-4xl text-xs">
@@ -2456,7 +3339,7 @@ export default function EnterpriseAdminCommandCenter() {
                 📦 1-Click Full Database Snapshot (.JSON)
               </h3>
               <p className="text-slate-400">
-                Download all your Posts, Revisions, Mock Tests, Partner Courses, Tools Config &amp; Staff Roles into a single backup file or restore anytime.
+                Download all your Posts, Categories, Subcategories, Revisions, Mock Tests, Partner Courses, Tools Config &amp; Staff Roles into a single backup file or restore anytime.
               </p>
               <div className="flex flex-wrap gap-4">
                 <button
