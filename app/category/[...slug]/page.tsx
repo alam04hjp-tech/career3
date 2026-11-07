@@ -383,44 +383,6 @@ export default function UnifiedCategoryAndSubcategoryPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdSchema) }}
       />
 
-      {/* TOP PORTAL NAVBAR */}
-      <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-          <Link href="/" className="text-xl font-black text-white tracking-tight">
-            CAREERSATHI<span className="text-amber-400">.COM</span>
-          </Link>
-
-          <nav className="flex flex-wrap items-center gap-1.5 text-xs font-bold">
-            <Link href="/" className="px-3 py-1.5 rounded-lg hover:bg-slate-800 text-slate-300">
-              🏠 Home
-            </Link>
-            {allMainCategories.map((mc) => {
-              const isCurrent =
-                mc.slug === activeItem.slug || (parentCategory && mc.slug === parentCategory.slug);
-              return (
-                <Link
-                  key={mc.id}
-                  href={`/category/${mc.slug}`}
-                  className={`px-3 py-1.5 rounded-lg transition ${
-                    isCurrent
-                      ? 'bg-blue-600 text-white shadow'
-                      : 'hover:bg-slate-800 text-slate-300'
-                  }`}
-                >
-                  {mc.name}
-                </Link>
-              );
-            })}
-            <Link
-              href="/tools/form-tool"
-              className="px-3 py-1.5 rounded-lg bg-amber-500 text-slate-950 font-black"
-            >
-              ⚡ Form Tool
-            </Link>
-          </nav>
-        </div>
-      </header>
-
       <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
       <Breadcrumbs/>
 
