@@ -65,7 +65,9 @@ export default function PostDetailPage() {
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-900 p-4">
         <h1 className="text-2xl font-bold text-red-600 mb-2">Post Not Found</h1>
         <p className="text-sm text-slate-600 mb-4">The post you are looking for does not exist or has been removed.</p>
-        <Breadcrumbs />
+        <Link href="/" className="px-4 py-2 bg-blue-600 text-white rounded text-xs font-bold shadow">
+          ← Back to Homepage
+        </Link>
       </div>
     );
   }
@@ -122,6 +124,7 @@ export default function PostDetailPage() {
       <main className="max-w-4xl mx-auto p-4 sm:p-6 my-6">
         <article className="bg-white p-6 sm:p-8 rounded-xl shadow-lg border border-slate-200 space-y-6">
           
+        <Breadcrumbs/>
           <Link
             href="/"
             className="text-xs font-bold text-blue-600 hover:underline mb-2 inline-block"
