@@ -4,6 +4,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import Breadcrumbs from '@/app/Breadcrumbs';
 
 interface FaqRow {
   question: string;
