@@ -605,26 +605,7 @@ export default function Home() {
             </div>
           )}
         </section>
-
       </main>
-
-      {/* Footer with Dynamic Static Pages */}
-      <footer className="bg-slate-900 text-slate-400 py-6 px-4 text-xs mt-12 space-y-3">
-        <div className="max-w-6xl mx-auto flex flex-wrap justify-center gap-4 font-bold text-slate-300">
-          <Link href="/" className="hover:text-white transition">Home</Link>
-          <Link href="/tools/form-tool" className="text-amber-400 hover:underline">All-in-One Form Tool</Link>
-          <Link href="/tools/passport-photo-maker" className="hover:text-white">Passport Photo Maker</Link>
-          <Link href="/tools/pdf-compressor" className="hover:text-white">PDF Compressor</Link>
-          <Link href="/tools/answer-key-analyzer" className="hover:text-white">Answer Key Analyzer</Link>
-          {staticPages.map((pg) => (
-            <Link key={pg.id} href={`/pages/${pg.slug}`} className="hover:text-white underline transition">
-              {pg.title}
-            </Link>
-          ))}
-          <Link href="/admin" className="text-blue-400 hover:text-blue-300 transition">Admin CMS</Link>
-        </div>
-        <p className="text-center text-slate-500">© 2026 CareerSathi.com — Fast Exam Alerts &amp; Results. All Rights Reserved.</p>
-      </footer>
     </div>
   );
 }
