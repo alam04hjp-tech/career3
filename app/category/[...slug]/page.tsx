@@ -422,27 +422,7 @@ export default function UnifiedCategoryAndSubcategoryPage() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
-        {/* SEO BREADCRUMB BAR */}
-        <nav aria-label="Breadcrumb" className="text-xs text-slate-400 flex flex-wrap items-center gap-2">
-          <Link href="/" className="hover:text-amber-400 font-bold">
-            🏠 Home
-          </Link>
-          <span>›</span>
-          {isSubcategoryView && parentCategory ? (
-            <>
-              <Link
-                href={`/category/${parentCategory.slug}`}
-                className="hover:text-amber-400 font-bold text-slate-300"
-              >
-                {parentCategory.name}
-              </Link>
-              <span>›</span>
-              <span className="text-cyan-400 font-black">{activeItem.name}</span>
-            </>
-          ) : (
-            <span className="text-amber-400 font-black">{activeItem.name}</span>
-          )}
-        </nav>
+      <Breadcrumbs/>
 
         {/* HERO SEO HEADER BANNER (UNIFIED FOR CATEGORY & SUBCATEGORY) */}
         <section className="bg-gradient-to-r from-slate-900 via-blue-950/60 to-slate-900 p-6 rounded-3xl border border-blue-500/30 space-y-4 shadow-xl">
