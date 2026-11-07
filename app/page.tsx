@@ -131,42 +131,6 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col">
       
-      {/* Header Banner */}
-      <header className="bg-blue-700 text-white py-6 px-4 shadow-md text-center">
-        <h1 className="text-3xl sm:text-4xl font-black tracking-wide">CAREERSATHI.COM</h1>
-        <p className="text-xs sm:text-sm text-blue-100 mt-1">
-          India&apos;s #1 Fast Student Portal — Results, Admit Card, Jobs, Mock Tests &amp; Online Form Tools
-        </p>
-      </header>
-
-      {/* Header Navigation Menu Bar */}
-      <nav className="bg-blue-900 text-white shadow-md sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 flex flex-wrap justify-center sm:justify-between items-center py-2.5 gap-2 text-xs sm:text-sm font-bold">
-          <div className="flex flex-wrap justify-center gap-1 sm:gap-2.5">
-            <Link href="/" className="px-2.5 py-1.5 rounded hover:bg-blue-800 transition">🏠 Home</Link>
-            <Link href="/tools/form-tool" className="px-2.5 py-1.5 rounded bg-amber-500 text-slate-950 font-black hover:bg-amber-400 transition shadow">⚡ Form Tool</Link>
-            <a href="#student-tools-section" className="px-2.5 py-1.5 rounded hover:bg-blue-800 transition text-amber-300">🛠️ All Tools</a>
-            <a href="#mock-tests-section" className="px-2.5 py-1.5 rounded hover:bg-blue-800 transition bg-emerald-600 text-white shadow">📝 Mock Tests</a>
-            <a href="#latest-jobs" className="px-2.5 py-1.5 rounded hover:bg-blue-800 transition">💼 Jobs</a>
-            <a href="#admit-card" className="px-2.5 py-1.5 rounded hover:bg-blue-800 transition">🎫 Admit Card</a>
-            <a href="#results" className="px-2.5 py-1.5 rounded hover:bg-blue-800 transition">🏆 Results</a>
-            <Link href="/tools/answer-key-analyzer" className="px-2.5 py-1.5 rounded hover:bg-blue-800 transition text-emerald-300">🔑 Answer Key</Link>
-          </div>
-          
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2">
-            <Link href="/register" className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-3 py-1.5 rounded shadow transition font-black text-xs">
-              📲 WhatsApp Alerts
-            </Link>
-            <Link href="/partners" className="bg-amber-500 hover:bg-amber-600 text-slate-900 px-3 py-1.5 rounded shadow transition font-bold text-xs">
-              🏛️ Partner
-            </Link>
-            <Link href="/admin" className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded shadow transition text-xs font-bold">
-              ⚙️ CMS
-            </Link>
-          </div>
-        </div>
-      </nav>
 
       {/* Quick Utility Strip for Students */}
       <div className="bg-blue-950 py-2 px-4 border-b border-blue-800 text-xs">
