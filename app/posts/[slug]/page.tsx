@@ -120,11 +120,13 @@ export default function PostDetailPage() {
         <Link href="/" className="text-2xl font-black tracking-wide">CAREERSATHI.COM</Link>
       </header>
 
+      <Breadcrumbs/>
+
       {/* Main Post Detail */}
       <main className="max-w-4xl mx-auto p-4 sm:p-6 my-6">
         <article className="bg-white p-6 sm:p-8 rounded-xl shadow-lg border border-slate-200 space-y-6">
           
-        <Breadcrumbs/>
+        
           <Link
             href="/"
             className="text-xs font-bold text-blue-600 hover:underline mb-2 inline-block"
