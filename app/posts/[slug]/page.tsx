@@ -115,11 +115,6 @@ export default function PostDetailPage() {
         />
       )}
 
-      {/* Header Banner */}
-      <header className="bg-blue-700 text-white py-4 px-4 shadow-md text-center">
-        <Link href="/" className="text-2xl font-black tracking-wide">CAREERSATHI.COM</Link>
-      </header>
-
       <Breadcrumbs/>
 
       {/* Main Post Detail */}
