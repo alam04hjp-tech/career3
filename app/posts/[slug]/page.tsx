@@ -206,10 +206,6 @@ export default function PostDetailPage() {
           )}
         </article>
       </main>
-
-      <footer className="bg-slate-900 text-slate-400 text-center py-6 text-xs mt-12">
-        <p>© 2026 CareerSathi.com — Fast Exam Alerts & Results. All Rights Reserved.</p>
-      </footer>
     </div>
   );
 }
