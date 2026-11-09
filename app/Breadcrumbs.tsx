@@ -1,4 +1,3 @@
-
 // File: app/Breadcrumbs.tsx
 'use client';
 
@@ -23,14 +22,13 @@ export default function Breadcrumbs({
   const pathname = usePathname();
   const [autoItems, setAutoItems] = useState<BreadcrumbItem[]>([]);
 
-  // Format slug into readable text (e.g. "bihar-sarkari-jobs" -> "Bihar Sarkari Jobs")
+  // Format slug into readable text
   const formatSlug = (slug: string) =>
     decodeURIComponent(slug)
       .replace(/-/g, ' ')
       .replace(/\b\w/g, (char) => char.toUpperCase());
 
   useEffect(() => {
-    // Agar page ne khud custom items bheje hain, toh auto-calculation ki zaroorat nahi
     if (items && items.length > 0) return;
     if (!pathname || pathname === '/' || pathname.startsWith('/admin') || pathname.startsWith('/tools')) {
       setAutoItems([]);
@@ -141,16 +139,14 @@ export default function Breadcrumbs({
           });
         });
       }
-    } catch {
-      // Fallback if localStorage parsing fails
-    }
+    } catch {}
 
     setAutoItems(trail);
   }, [pathname, items]);
 
   const finalItems = items && items.length > 0 ? items : autoItems;
 
-  // Generate Google BreadcrumbList JSON-LD Schema
+  // Generate Google BreadcrumbList JSON-LD Schema (Crucial for SEO Ranking)
   const breadcrumbSchema = useMemo(() => {
     if (!finalItems || finalItems.length <= 1) return null;
     return {
@@ -168,11 +164,8 @@ export default function Breadcrumbs({
   if (!finalItems || finalItems.length <= 1) return null;
 
   return (
-    <nav
-      aria-label="Breadcrumb"
-      className="w-full bg-slate-900/70 border border-slate-800/90 rounded-2xl px-4 py-2.5 text-xs text-slate-400 shadow-sm"
-    >
-      {/* Google Rich Snippet BreadcrumbList Schema */}
+    <div className="w-full bg-white border-b border-slate-200 py-2.5 px-4 font-sans">
+      {/* Google & Bing Rich Snippet JSON-LD Schema */}
       {breadcrumbSchema && (
         <script
           type="application/ld+json"
@@ -180,33 +173,32 @@ export default function Breadcrumbs({
         />
       )}
 
-      <ol className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+      <div className="max-w-4xl mx-auto text-xs text-slate-600 font-medium flex flex-wrap items-center gap-1">
         {finalItems.map((item, idx) => {
           const isLast = idx === finalItems.length - 1;
           return (
-            <li key={idx} className="flex items-center gap-1.5 sm:gap-2">
-              {idx > 0 && <span className="text-slate-600 select-none">›</span>}
+            <React.Fragment key={idx}>
+              {idx > 0 && <span className="text-slate-400 select-none">&gt;</span>}
 
               {item.href && !isLast ? (
                 <Link
                   href={item.href}
-                  className="font-bold text-slate-300 hover:text-amber-400 transition flex items-center gap-1"
+                  className="hover:underline text-blue-600 font-medium"
                 >
-                  {idx === 0 && <span>🏠</span>}
-                  <span>{item.label}</span>
+                  {idx === 0 ? 'Home' : item.label}
                 </Link>
               ) : (
                 <span
                   aria-current="page"
-                  className="font-black text-amber-400 truncate max-w-[220px] sm:max-w-md"
+                  className={isLast ? 'text-slate-900 font-bold truncate max-w-[240px]' : 'text-slate-500'}
                 >
                   {item.label}
                 </span>
               )}
-            </li>
+            </React.Fragment>
           );
         })}
-      </ol>
-    </nav>
+      </div>
+    </div>
   );
 }
