@@ -1,3 +1,4 @@
+
 // File: app/Breadcrumbs.tsx
 'use client';
 
@@ -22,13 +23,14 @@ export default function Breadcrumbs({
   const pathname = usePathname();
   const [autoItems, setAutoItems] = useState<BreadcrumbItem[]>([]);
 
-  // Format slug into readable text (e.g. "ssc-cgl-batch-2026" -> "Ssc Cgl Batch 2026")
+  // Format slug into readable text (e.g. "bihar-sarkari-jobs" -> "Bihar Sarkari Jobs")
   const formatSlug = (slug: string) =>
     decodeURIComponent(slug)
       .replace(/-/g, ' ')
       .replace(/\b\w/g, (char) => char.toUpperCase());
 
   useEffect(() => {
+    // Agar page ne khud custom items bheje hain, toh auto-calculation ki zaroorat nahi
     if (items && items.length > 0) return;
     if (!pathname || pathname === '/' || pathname.startsWith('/admin') || pathname.startsWith('/tools')) {
       setAutoItems([]);
@@ -139,7 +141,9 @@ export default function Breadcrumbs({
           });
         });
       }
-    } catch {}
+    } catch {
+      // Fallback if localStorage parsing fails
+    }
 
     setAutoItems(trail);
   }, [pathname, items]);
@@ -164,7 +168,10 @@ export default function Breadcrumbs({
   if (!finalItems || finalItems.length <= 1) return null;
 
   return (
-    <nav aria-label="Breadcrumb" className="w-full py-1 text-xs font-sans">
+    <nav
+      aria-label="Breadcrumb"
+      className="w-full bg-slate-900/70 border border-slate-800/90 rounded-2xl px-4 py-2.5 text-xs text-slate-400 shadow-sm"
+    >
       {/* Google Rich Snippet BreadcrumbList Schema */}
       {breadcrumbSchema && (
         <script
@@ -173,24 +180,25 @@ export default function Breadcrumbs({
         />
       )}
 
-      <ol className="flex flex-wrap items-center gap-2 text-slate-400">
+      <ol className="flex flex-wrap items-center gap-1.5 sm:gap-2">
         {finalItems.map((item, idx) => {
           const isLast = idx === finalItems.length - 1;
           return (
-            <li key={idx} className="flex items-center gap-2">
-              {idx > 0 && <span className="text-slate-600 select-none">&gt;</span>}
+            <li key={idx} className="flex items-center gap-1.5 sm:gap-2">
+              {idx > 0 && <span className="text-slate-600 select-none">›</span>}
 
               {item.href && !isLast ? (
                 <Link
                   href={item.href}
-                  className="text-slate-400 hover:text-white transition font-medium"
+                  className="font-bold text-slate-300 hover:text-amber-400 transition flex items-center gap-1"
                 >
-                  {item.label}
+                  {idx === 0 && <span>🏠</span>}
+                  <span>{item.label}</span>
                 </Link>
               ) : (
                 <span
                   aria-current="page"
-                  className="text-slate-200 font-semibold truncate max-w-[240px] sm:max-w-md"
+                  className="font-black text-amber-400 truncate max-w-[220px] sm:max-w-md"
                 >
                   {item.label}
                 </span>
