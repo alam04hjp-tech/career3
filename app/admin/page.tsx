@@ -5,6 +5,33 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 
 // ==========================================
+// 0. INDUSTRY-STANDARD SEO SLUG SANITIZER
+// ==========================================
+export const sanitizeSeoSlug = (rawInput: string, trimHyphens = true): string => {
+  if (!rawInput) return '';
+  let cleaned = rawInput
+    .toString()
+    // Agar koi galti se pura URL paste kar de (e.g. https://site.com/posts/my-slug), toh sirf last part nikalo
+    .replace(/^https?:\/\/[^/]+\/(posts|category|pages|courses|books|mock-tests)\//i, '')
+    .replace(/^https?:\/\/[^/]+\//i, '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove accents
+    .toLowerCase()
+    .replace(/&/g, '-and-') // Replace '&' with 'and'
+    .replace(/[^a-z0-9-]+/g, '-') // Strip emojis, special chars, spaces -> hyphen
+    .replace(/-+/g, '-'); // Collapse multiple hyphens into one
+
+  if (trimHyphens) {
+    cleaned = cleaned.replace(/^-+|-+$/g, '');
+  } else {
+    cleaned = cleaned.replace(/^-+/g, '');
+  }
+
+  // Max 90 chars for Google SEO best practices
+  return cleaned.slice(0, 90);
+};
+
+// ==========================================
 // 1. ENTERPRISE DATA INTERFACES
 // ==========================================
 
@@ -169,6 +196,512 @@ type AdminTab =
   | 'settings-backup';
 
 // ==========================================
+// 1B. NOTION / WORDPRESS GUTENBERG BLOCK + DUAL EDITOR
+// ==========================================
+interface SmartBlockEditorProps {
+  label: string;
+  badgeText?: string;
+  value: string;
+  onChange: (html: string) => void;
+  variant?: 'compact' | 'full';
+  placeholder?: string;
+  minHeight?: string;
+}
+
+function GutenbergSmartEditor({
+  label,
+  badgeText = 'Notion / Gutenberg Block + HTML Editor',
+  value,
+  onChange,
+  variant = 'full',
+  placeholder = 'Write or insert blocks here...',
+  minHeight = '240px',
+}: SmartBlockEditorProps) {
+  const [mode, setMode] = useState<'visual' | 'code'>('visual');
+  const [showLinkPanel, setShowLinkPanel] = useState(false);
+  const [showImagePanel, setShowImagePanel] = useState(false);
+  const [linkText, setLinkText] = useState('');
+  const [linkUrl, setLinkUrl] = useState('https://');
+  const [linkNewTab, setLinkNewTab] = useState(true);
+
+  const [imgUrl, setImgUrl] = useState('');
+  const [imgAlt, setImgAlt] = useState('');
+  const [imgCaption, setImgCaption] = useState('');
+
+  const visualRef = useRef<HTMLDivElement>(null);
+  const codeRef = useRef<HTMLTextAreaElement>(null);
+
+  // Sync external value changes safely into visual editor without jumping cursor
+  useEffect(() => {
+    if (mode === 'visual' && visualRef.current) {
+      if (document.activeElement !== visualRef.current && visualRef.current.innerHTML !== value) {
+        visualRef.current.innerHTML = value || '';
+      }
+    }
+  }, [value, mode]);
+
+  // Apply HTML insertion or formatting to whichever mode is active
+  const insertOrWrapHtml = (openTag: string, closeTag: string, defaultText: string) => {
+    if (mode === 'code' && codeRef.current) {
+      const ta = codeRef.current;
+      const start = ta.selectionStart;
+      const end = ta.selectionEnd;
+      const selected = value.substring(start, end) || defaultText;
+      const updated = value.substring(0, start) + `${openTag}${selected}${closeTag}` + value.substring(end);
+      onChange(updated);
+      setTimeout(() => {
+        ta.focus();
+        ta.setSelectionRange(start + openTag.length, start + openTag.length + selected.length);
+      }, 10);
+    } else if (visualRef.current) {
+      visualRef.current.focus();
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0 && visualRef.current.contains(selection.anchorNode)) {
+        const selectedText = selection.toString() || defaultText;
+        document.execCommand('insertHTML', false, `${openTag}${selectedText}${closeTag}`);
+      } else {
+        visualRef.current.innerHTML += `${openTag}${defaultText}${closeTag}`;
+      }
+      onChange(visualRef.current.innerHTML);
+    }
+  };
+
+  // Append a full Gutenberg block cleanly
+  const insertGutenbergBlock = (blockHtml: string) => {
+    const cleanAddition = `\n${blockHtml}\n`;
+    if (mode === 'code' && codeRef.current) {
+      const ta = codeRef.current;
+      const start = ta.selectionStart || value.length;
+      const updated = value.substring(0, start) + cleanAddition + value.substring(start);
+      onChange(updated);
+    } else if (visualRef.current) {
+      visualRef.current.innerHTML = (visualRef.current.innerHTML || '') + cleanAddition;
+      onChange(visualRef.current.innerHTML);
+      visualRef.current.scrollTop = visualRef.current.scrollHeight;
+    } else {
+      onChange((value || '') + cleanAddition);
+    }
+  };
+
+  const handleInsertLink = () => {
+    if (!linkUrl.trim()) return;
+    const textToUse = linkText.trim() || linkUrl.trim();
+    const targetAttr = linkNewTab ? ' target="_blank" rel="noopener noreferrer"' : '';
+    const html = `<a href="${linkUrl.trim()}"${targetAttr} class="text-blue-600 font-bold underline hover:text-blue-800">${textToUse}</a> `;
+    insertOrWrapHtml(html, '', '');
+    setLinkText('');
+    setLinkUrl('https://');
+    setShowLinkPanel(false);
+  };
+
+  const handleInsertImage = () => {
+    if (!imgUrl.trim()) return;
+    const safeAlt = (imgAlt.trim() || 'CareerSathi Exam Notification Image').replace(/"/g, '&quot;');
+    const html = `<figure class="my-4"><img src="${imgUrl.trim()}" alt="${safeAlt}" class="rounded-xl max-w-full h-auto border border-slate-200 shadow-sm mx-auto" loading="lazy" />${
+      imgCaption.trim()
+        ? `<figcaption class="text-center text-xs text-slate-500 mt-1.5 font-medium">${imgCaption.trim()}</figcaption>`
+        : ''
+    }</figure>`;
+    insertGutenbergBlock(html);
+    setImgUrl('');
+    setImgAlt('');
+    setImgCaption('');
+    setShowImagePanel(false);
+  };
+
+  return (
+    <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden shadow-lg space-y-0 text-xs">
+      {/* HEADER BAR: LABEL + MODE SWITCHER */}
+      <div className="bg-slate-900 px-3.5 py-2.5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="font-black text-amber-400">{label}</span>
+          <span className="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-full font-bold">
+            {badgeText}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+          <button
+            type="button"
+            onClick={() => setMode('visual')}
+            className={`px-3 py-1 rounded-lg font-black transition ${
+              mode === 'visual'
+                ? 'bg-blue-600 text-white shadow'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            👁️ Visual / Block Mode
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('code')}
+            className={`px-3 py-1 rounded-lg font-black transition ${
+              mode === 'code'
+                ? 'bg-amber-500 text-slate-950 shadow'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            💻 HTML Code Mode
+          </button>
+        </div>
+      </div>
+
+      {/* ROW 1: INLINE TEXT STYLING TOOLBAR (BOLD, COLOR, SIZE, LINK, IMAGE) */}
+      <div className="bg-slate-900/70 px-3 py-2 border-b border-slate-800 flex flex-wrap items-center gap-1.5">
+        <button
+          type="button"
+          title="Bold"
+          onClick={() => insertOrWrapHtml('<strong>', '</strong>', 'Bold Text')}
+          className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white font-black rounded-lg border border-slate-700"
+        >
+          B
+        </button>
+        <button
+          type="button"
+          title="Italic"
+          onClick={() => insertOrWrapHtml('<em>', '</em>', 'Italic Text')}
+          className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 italic font-serif rounded-lg border border-slate-700"
+        >
+          I
+        </button>
+        <button
+          type="button"
+          title="Underline"
+          onClick={() => insertOrWrapHtml('<u>', '</u>', 'Underlined Text')}
+          className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 underline rounded-lg border border-slate-700"
+        >
+          U
+        </button>
+
+        <span className="h-4 w-px bg-slate-800 mx-0.5" />
+
+        {/* FONT SIZE SELECTOR */}
+        <select
+          onChange={(e) => {
+            if (!e.target.value) return;
+            insertOrWrapHtml(
+              `<span style="font-size: ${e.target.value};">`,
+              '</span>',
+              'Sized Text'
+            );
+            e.target.value = '';
+          }}
+          defaultValue=""
+          className="px-2 py-1 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 font-bold outline-none"
+        >
+          <option value="" disabled>
+            🔠 Text Size
+          </option>
+          <option value="12px">Small (12px)</option>
+          <option value="14px">Normal (14px)</option>
+          <option value="16px">Medium (16px)</option>
+          <option value="18px">Large (18px)</option>
+          <option value="22px">Extra Large (22px)</option>
+        </select>
+
+        {/* QUICK TEXT COLOR PALETTE */}
+        <div className="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
+          <span className="text-[10px] text-slate-400 font-bold mr-0.5">🎨 Color:</span>
+          {[
+            { name: 'Blue', hex: '#2563eb', bg: 'bg-blue-600' },
+            { name: 'Red', hex: '#dc2626', bg: 'bg-red-600' },
+            { name: 'Green', hex: '#059669', bg: 'bg-emerald-600' },
+            { name: 'Amber', hex: '#d97706', bg: 'bg-amber-600' },
+            { name: 'Purple', hex: '#7c3aed', bg: 'bg-purple-600' },
+            { name: 'Dark', hex: '#0f172a', bg: 'bg-slate-900 border border-slate-600' },
+          ].map((col) => (
+            <button
+              key={col.hex}
+              type="button"
+              title={`Color: ${col.name}`}
+              onClick={() =>
+                insertOrWrapHtml(
+                  `<span style="color: ${col.hex}; font-weight: 600;">`,
+                  '</span>',
+                  'Colored Text'
+                )
+              }
+              className={`w-4 h-4 rounded-full ${col.bg} hover:scale-110 transition`}
+            />
+          ))}
+          <input
+            type="color"
+            title="Pick Custom Color"
+            onChange={(e) =>
+              insertOrWrapHtml(
+                `<span style="color: ${e.target.value};">`,
+                '</span>',
+                'Colored Text'
+              )
+            }
+            className="w-4 h-4 bg-transparent border-0 cursor-pointer p-0"
+          />
+        </div>
+
+        {/* HIGHLIGHT BADGE */}
+        <button
+          type="button"
+          onClick={() =>
+            insertOrWrapHtml(
+              '<mark style="background-color: #fef08a; color: #0f172a; padding: 1px 6px; border-radius: 4px; font-weight: 700;">',
+              '</mark>',
+              'Highlighted Note'
+            )
+          }
+          className="px-2 py-1 bg-amber-400/20 text-amber-300 border border-amber-400/40 rounded-lg font-bold"
+        >
+          🖍️ Highlight
+        </button>
+
+        {/* LINK & IMAGE DIALOG TRIGGERS */}
+        <button
+          type="button"
+          onClick={() => {
+            setShowLinkPanel(!showLinkPanel);
+            setShowImagePanel(false);
+          }}
+          className="px-2.5 py-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/40 rounded-lg font-bold"
+        >
+          🔗 Add Link
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setShowImagePanel(!showImagePanel);
+            setShowLinkPanel(false);
+          }}
+          className="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 rounded-lg font-bold"
+        >
+          🖼️ Add Image
+        </button>
+      </div>
+
+      {/* INLINE LINK INSERTION DRAWER */}
+      {showLinkPanel && (
+        <div className="bg-slate-900 p-3 border-b border-slate-800 flex flex-wrap items-center gap-2">
+          <input
+            type="text"
+            placeholder="Link Text (e.g. Official Notification PDF)"
+            value={linkText}
+            onChange={(e) => setLinkText(e.target.value)}
+            className="flex-1 min-w-[160px] p-2 bg-slate-950 border border-slate-700 rounded-lg text-white"
+          />
+          <input
+            type="text"
+            placeholder="URL (https://... or /tools/form-tool)"
+            value={linkUrl}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            className="flex-1 min-w-[180px] p-2 bg-slate-950 border border-slate-700 rounded-lg text-cyan-300 font-mono"
+          />
+          <label className="flex items-center gap-1 text-slate-300 font-bold cursor-pointer">
+            <input
+              type="checkbox"
+              checked={linkNewTab}
+              onChange={(e) => setLinkNewTab(e.target.checked)}
+            />
+            New Tab
+          </label>
+          <button
+            type="button"
+            onClick={handleInsertLink}
+            className="px-3 py-2 bg-blue-600 text-white font-black rounded-lg"
+          >
+            Insert Link ✓
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowLinkPanel(false)}
+            className="px-2.5 py-2 bg-slate-800 text-slate-400 rounded-lg font-bold"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* INLINE IMAGE INSERTION DRAWER (WITH SEO ALT TEXT) */}
+      {showImagePanel && (
+        <div className="bg-slate-900 p-3 border-b border-slate-800 grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+          <input
+            type="text"
+            placeholder="Image URL (https://...)"
+            value={imgUrl}
+            onChange={(e) => setImgUrl(e.target.value)}
+            className="sm:col-span-4 p-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono"
+          />
+          <input
+            type="text"
+            placeholder="SEO Alt Text (e.g. SSC CGL 2026 Vacancy Table)"
+            value={imgAlt}
+            onChange={(e) => setImgAlt(e.target.value)}
+            className="sm:col-span-4 p-2 bg-slate-950 border border-slate-700 rounded-lg text-emerald-300 font-bold"
+          />
+          <input
+            type="text"
+            placeholder="Caption (Optional)"
+            value={imgCaption}
+            onChange={(e) => setImgCaption(e.target.value)}
+            className="sm:col-span-2 p-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300"
+          />
+          <div className="sm:col-span-2 flex gap-1">
+            <button
+              type="button"
+              onClick={handleInsertImage}
+              className="flex-1 py-2 bg-emerald-600 text-white font-black rounded-lg"
+            >
+              Insert ✓
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowImagePanel(false)}
+              className="px-2.5 py-2 bg-slate-800 text-slate-400 rounded-lg font-bold"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ROW 2: GUTENBERG / NOTION "+ ADD BLOCK" PALETTE (FOR FULL EDITORS) */}
+      {variant === 'full' && (
+        <div className="bg-slate-950 px-3 py-2 border-b border-slate-800 flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] font-black uppercase tracking-wider text-cyan-400 mr-1">
+            🧱 + Insert Block:
+          </span>
+
+          <button
+            type="button"
+            onClick={() =>
+              insertGutenbergBlock('<h2>Section Heading (H2 for Google SEO)</h2>')
+            }
+            className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg border border-slate-800"
+          >
+            + H2 Heading
+          </button>
+
+          <button
+            type="button"
+            onClick={() => insertGutenbergBlock('<h3>Sub-Section Heading (H3)</h3>')}
+            className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-slate-200 font-bold rounded-lg border border-slate-800"
+          >
+            + H3 Subheading
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              insertGutenbergBlock(
+                '<p>Write detailed paragraph content here with important exam keywords...</p>'
+              )
+            }
+            className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold rounded-lg border border-slate-800"
+          >
+            + Paragraph
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              insertGutenbergBlock(
+                '<ul>\n  <li><strong>Key Point 1:</strong> Check official eligibility criteria.</li>\n  <li><strong>Key Point 2:</strong> Resize photo and 6x2cm signature before applying.</li>\n</ul>'
+              )
+            }
+            className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold rounded-lg border border-slate-800"
+          >
+            + • Bullet List
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              insertGutenbergBlock(
+                '<ol>\n  <li>Visit the official recruitment website linked below.</li>\n  <li>Complete One-Time Registration (OTR) and fill application details.</li>\n  <li>Upload formatted photo, signature, and PDF certificates.</li>\n</ol>'
+              )
+            }
+            className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold rounded-lg border border-slate-800"
+          >
+            + 1. Steps List
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              insertGutenbergBlock(
+                '<div style="overflow-x:auto; margin: 14px 0;"><table style="width:100%; border-collapse: collapse; border: 1px solid #cbd5e1; font-size: 13px;"><thead><tr style="background-color: #1e293b; color: #ffffff;"><th style="padding: 10px; border: 1px solid #cbd5e1; text-align:left;">Post / Category Name</th><th style="padding: 10px; border: 1px solid #cbd5e1; text-align:left;">Total Vacancies</th><th style="padding: 10px; border: 1px solid #cbd5e1; text-align:left;">Qualification / Age Limit</th></tr></thead><tbody><tr><td style="padding: 10px; border: 1px solid #cbd5e1; font-weight:700;">General / UR</td><td style="padding: 10px; border: 1px solid #cbd5e1;">1,250 Posts</td><td style="padding: 10px; border: 1px solid #cbd5e1;">18 – 27 Years (Graduate)</td></tr><tr style="background-color: #f8fafc;"><td style="padding: 10px; border: 1px solid #cbd5e1; font-weight:700;">OBC / EWS / SC / ST</td><td style="padding: 10px; border: 1px solid #cbd5e1;">As Per Rules</td><td style="padding: 10px; border: 1px solid #cbd5e1;">Age Relaxation Applicable</td></tr></tbody></table></div>'
+              )
+            }
+            className="px-2.5 py-1 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 font-bold rounded-lg border border-cyan-500/30"
+          >
+            + 📊 Exam Table
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              insertGutenbergBlock(
+                '<div style="background-color: #eff6ff; border-left: 4px solid #2563eb; padding: 12px 16px; border-radius: 8px; margin: 12px 0; color: #1e3a8a;"><strong>💡 Important Candidate Note:</strong> Make sure your scanned signature is 6.0 cm × 2.0 cm (10KB–20KB) using our free CareerSathi Form Tool before final submission.</div>'
+              )
+            }
+            className="px-2.5 py-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 font-bold rounded-lg border border-amber-500/30"
+          >
+            + 💡 Alert Callout
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              insertGutenbergBlock(
+                '<p style="margin: 14px 0;"><a href="/tools/form-tool" style="display:inline-block; background-color:#2563eb; color:#ffffff; font-weight:800; padding:10px 20px; border-radius:10px; text-decoration:none;">⚡ Resize Photo, 6x2cm Sign & PDF Now ↗</a></p>'
+              )
+            }
+            className="px-2.5 py-1 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 font-bold rounded-lg border border-emerald-500/30"
+          >
+            + 🔘 CTA Button
+          </button>
+        </div>
+      )}
+
+      {/* EDITOR CANVAS: VISUAL WYSIWYG OR RAW HTML CODE */}
+      {mode === 'visual' ? (
+        <div className="p-3 bg-slate-100">
+          <div
+            ref={visualRef}
+            contentEditable
+            suppressContentEditableWarning
+            onInput={(e) => onChange(e.currentTarget.innerHTML)}
+            onBlur={(e) => onChange(e.currentTarget.innerHTML)}
+            style={{ minHeight }}
+            data-placeholder={placeholder}
+            className="w-full p-4 bg-white text-slate-900 rounded-xl border border-slate-300 shadow-inner outline-none focus:ring-2 focus:ring-blue-500 prose prose-sm max-w-none overflow-y-auto leading-relaxed"
+          />
+          <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1.5 px-1">
+            <span>
+              💡 Tip: Text select karke upar se Color, Size, Bold ya Link lagayein, ya &quot;+ Insert Block&quot; click karein.
+            </span>
+            <span>{value.replace(/<[^>]*>/g, '').length} chars</span>
+          </div>
+        </div>
+      ) : (
+        <div className="p-3 bg-slate-950">
+          <textarea
+            ref={codeRef}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            style={{ minHeight }}
+            placeholder={placeholder}
+            className="w-full p-3.5 bg-slate-900 border border-slate-700 rounded-xl text-emerald-300 font-mono text-xs outline-none focus:border-amber-400 leading-relaxed"
+          />
+          <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1.5 px-1">
+            <span>💻 Raw HTML Mode — Changes sync automatically with Visual Block Mode.</span>
+            <span>{value.length} HTML bytes</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==========================================
 // DEFAULT SEO CATEGORIES & SUBCATEGORIES
 // ==========================================
 const DEFAULT_CATEGORIES: CategoryItem[] = [
@@ -204,7 +737,7 @@ const DEFAULT_CATEGORIES: CategoryItem[] = [
     shortIntro: 'Download your official CBT exam hall ticket, check application status, shift timing, and exam city intimation slips directly.',
     seoBottomContent: '<h2>How to Download Your Exam Admit Card Online?</h2><p>Select your exam from the list above, click on the regional or official login link, and enter your Registration Number and Date of Birth to print your A4 Admit Card.</p>',
     faqs: [
-      { question: 'What documents are required at the exam center along with the Admit Card?', answer: 'You must carry a printed copy of your Admit Card, 2 passport size photographs, and an original valid Photo ID (Aadhaar, PAN, or Voter ID).' },
+      { question: 'What documents are required at the exam center along with the Admit Card?', answer: 'You must carry a printed copy of your Admit Card, 2 passport size photographs, and an original valid Photo ID (PAN, Voter ID, Driving License, or Passport).' },
     ],
     count: 0,
   },
@@ -248,7 +781,7 @@ const DEFAULT_CATEGORIES: CategoryItem[] = [
     slug: 'admission',
     parentId: null,
     targetExamTag: 'NEET',
-    h1Title: ' Entrance Exam & University Admission 2026 — NEET, JEE, CUET & ITI',
+    h1Title: 'Entrance Exam & University Admission 2026 — NEET, JEE, CUET & ITI',
     metaTitle: 'Online Admission 2026 | CUET, NEET, JEE, B.Ed, ITI & Polytechnic Forms',
     metaDesc: 'Apply online for 2026 national and state entrance exams, university admissions, counselling schedules, and seat allotment results.',
     focusKeyword: 'Online Admission Form 2026',
@@ -501,7 +1034,6 @@ export default function EnterpriseAdminCommandCenter() {
   const [showPreview, setShowPreview] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editorMode, setEditorMode] = useState<'code' | 'visual'>('code');
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [revisions, setRevisions] = useState<PostRevision[]>([]);
@@ -546,9 +1078,8 @@ export default function EnterpriseAdminCommandCenter() {
   ]);
 
   const [classicContent, setClassicContent] = useState(
-    '<p>Write detailed information about the exam, eligibility, and selection process here...</p>'
+    '<h2>Official Notification &amp; Exam Overview</h2><p>Write detailed information about the exam, eligibility, and selection process here...</p>'
   );
-  const classicTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [importantLinks, setImportantLinks] = useState<LinkRow[]>([
     { text: 'Apply Online', url: 'https://ssc.gov.in' },
@@ -570,6 +1101,7 @@ export default function EnterpriseAdminCommandCenter() {
 
   // Mock Test Form States
   const [testTitle, setTestTitle] = useState('');
+  const [testSlug, setTestSlug] = useState('');
   const [testCategory, setTestCategory] = useState('SSC');
   const [testTimeMinutes, setTestTimeMinutes] = useState(30);
   const [questionsList, setQuestionsList] = useState<Question[]>([
@@ -577,9 +1109,10 @@ export default function EnterpriseAdminCommandCenter() {
   ]);
 
   // Static Page Form States
+  const [editingPageId, setEditingPageId] = useState<string | null>(null);
   const [pageTitle, setPageTitle] = useState('');
   const [pageSlug, setPageSlug] = useState('');
-  const [pageContent, setPageContent] = useState('<p>Write page content here...</p>');
+  const [pageContent, setPageContent] = useState('<h2>About This Page</h2><p>Write or insert blocks here...</p>');
 
   // Helper filters for Main Categories vs Subcategories
   const mainCategories = categories.filter((c) => c.parentId === null);
@@ -700,6 +1233,7 @@ export default function EnterpriseAdminCommandCenter() {
   const saveCategoriesToStorage = (updatedCats: CategoryItem[], currentPostsList: Post[] = posts) => {
     const withCounts = updatedCats.map((cat) => ({
       ...cat,
+      slug: sanitizeSeoSlug(cat.slug || cat.name, true),
       count:
         cat.parentId === null
           ? currentPostsList.filter((p) => p.category === cat.name).length
@@ -710,9 +1244,13 @@ export default function EnterpriseAdminCommandCenter() {
   };
 
   const savePostsToStorage = (updatedPosts: Post[]) => {
-    setPosts(updatedPosts);
-    localStorage.setItem('careersathi_posts', JSON.stringify(updatedPosts));
-    updateCategoryCounts(updatedPosts, categories);
+    const cleanPosts = updatedPosts.map((p) => ({
+      ...p,
+      slug: sanitizeSeoSlug(p.slug || p.title, true),
+    }));
+    setPosts(cleanPosts);
+    localStorage.setItem('careersathi_posts', JSON.stringify(cleanPosts));
+    updateCategoryCounts(cleanPosts, categories);
   };
 
   const saveRevisionsToStorage = (updatedRevs: PostRevision[]) => {
@@ -721,13 +1259,21 @@ export default function EnterpriseAdminCommandCenter() {
   };
 
   const savePagesToStorage = (updatedPages: CustomPage[]) => {
-    setPages(updatedPages);
-    localStorage.setItem('careersathi_pages', JSON.stringify(updatedPages));
+    const cleanPages = updatedPages.map((pg) => ({
+      ...pg,
+      slug: sanitizeSeoSlug(pg.slug || pg.title, true),
+    }));
+    setPages(cleanPages);
+    localStorage.setItem('careersathi_pages', JSON.stringify(cleanPages));
   };
 
   const saveMockTestsToStorage = (updated: MockTest[]) => {
-    setMockTests(updated);
-    localStorage.setItem('careersathi_mock_tests', JSON.stringify(updated));
+    const cleanTests = updated.map((t) => ({
+      ...t,
+      slug: sanitizeSeoSlug(t.slug || t.testTitle || t.title, true),
+    }));
+    setMockTests(cleanTests);
+    localStorage.setItem('careersathi_mock_tests', JSON.stringify(cleanTests));
   };
 
   const saveToolsConfig = (updated: ToolConfigItem[]) => {
@@ -756,12 +1302,7 @@ export default function EnterpriseAdminCommandCenter() {
       return;
     }
     const cleanName = catName.trim();
-    const generatedSlug =
-      catSlug.trim() ||
-      cleanName
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '');
+    const generatedSlug = sanitizeSeoSlug(catSlug.trim() || cleanName, true);
     setCatSlug(generatedSlug);
 
     const parentObj = catParentId !== 'MAIN' ? mainCategories.find((m) => m.id === catParentId) : null;
@@ -774,16 +1315,15 @@ export default function EnterpriseAdminCommandCenter() {
     );
     setCatFocusKeyword(`${cleanName} 2026`);
     setCatShortIntro(
-      `Explore all verified updates for ${cleanName} 2026. Check application start and last dates, age limit, category-wise seats, and use our free student tools to prepare your form documents.`
+      `Explore all verified updates for <strong>${cleanName} 2026</strong>. Check <span style="color: #2563eb; font-weight: 600;">application start and last dates</span>, age limit, category-wise seats, and use our free student tools to prepare your form documents.`
     );
-    setCatSeoBottom(`
-<h2>Complete Guide to ${cleanName} 2026</h2>
-<p>Candidates searching for <strong>${cleanName} 2026</strong> can find all direct official links, syllabus PDFs, and document upload instructions on this page. Make sure to verify your age eligibility and resize your photograph and signature using the CareerSathi Form Tool before submitting your online application.</p>
+    setCatSeoBottom(`<h2>Complete Guide to ${cleanName} 2026</h2>
+<p>Candidates searching for <strong>${cleanName} 2026</strong> can find all direct official links, syllabus PDFs, and document upload instructions on this page. Make sure to verify your age eligibility and resize your photograph and signature using the <a href="/tools/form-tool" class="text-blue-600 font-bold underline">CareerSathi All-in-One Form Tool</a> before submitting your online application.</p>
 <h3>Why Bookmark CareerSathi for ${cleanName}?</h3>
 <ul>
-  <li>Instant real-time alerts for notifications, admit cards, answer keys, and results.</li>
-  <li>100% free browser-based Photo, 6x2cm Signature, and Exact KB PDF Compressor tools.</li>
-  <li>Direct official portal links without confusing redirects.</li>
+  <li><strong>Real-Time Updates:</strong> Instant alerts for notifications, admit cards, answer keys, and results.</li>
+  <li><strong>100% Free Student Utilities:</strong> Browser-based Photo, 6x2cm Signature, and Exact KB PDF Compressor tools.</li>
+  <li><strong>Verified Official Links:</strong> Direct recruitment board portal links without confusing redirects.</li>
 </ul>`);
     setCatFaqs([
       {
@@ -799,8 +1339,9 @@ export default function EnterpriseAdminCommandCenter() {
 
   const handleSaveCategory = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!catName.trim() || !catSlug.trim()) {
-      alert('Please enter Category/Subcategory Name and Slug!');
+    const finalSafeSlug = sanitizeSeoSlug(catSlug || catName, true);
+    if (!catName.trim() || !finalSafeSlug) {
+      alert('Please enter a valid Category/Subcategory Name and Slug!');
       return;
     }
 
@@ -812,14 +1353,14 @@ export default function EnterpriseAdminCommandCenter() {
           return {
             ...c,
             name: catName.trim(),
-            slug: catSlug.trim(),
+            slug: finalSafeSlug,
             parentId: parentObj ? parentObj.id : null,
             parentName: parentObj ? parentObj.name : undefined,
-            parentSlug: parentObj ? parentObj.slug : undefined,
+            parentSlug: parentObj ? sanitizeSeoSlug(parentObj.slug, true) : undefined,
             targetExamTag: catTargetExam,
             h1Title: catH1 || `${catName.trim()} 2026`,
             metaTitle: catMetaTitle || `${catName.trim()} 2026 | CareerSathi`,
-            metaDesc: catMetaDesc || catShortIntro,
+            metaDesc: catMetaDesc || catShortIntro.replace(/<[^>]*>/g, '').slice(0, 155),
             focusKeyword: catFocusKeyword || catName.trim(),
             shortIntro: catShortIntro,
             seoBottomContent: catSeoBottom,
@@ -829,16 +1370,16 @@ export default function EnterpriseAdminCommandCenter() {
         return c;
       });
       saveCategoriesToStorage(updated);
-      logAuditAction('Updated Category/Subcategory SEO', catName);
-      alert('✅ Category / Subcategory SEO Updated!');
+      logAuditAction('Updated Category/Subcategory SEO', `${catName} (/category/${finalSafeSlug})`);
+      alert(`✅ Category / Subcategory SEO Updated! Clean Slug: ${finalSafeSlug}`);
     } else {
       const newCat: CategoryItem = {
         id: `cat-${Date.now()}`,
         name: catName.trim(),
-        slug: catSlug.trim(),
+        slug: finalSafeSlug,
         parentId: parentObj ? parentObj.id : null,
         parentName: parentObj ? parentObj.name : undefined,
-        parentSlug: parentObj ? parentObj.slug : undefined,
+        parentSlug: parentObj ? sanitizeSeoSlug(parentObj.slug, true) : undefined,
         targetExamTag: catTargetExam,
         h1Title: catH1 || `${catName.trim()} 2026 — Official Updates & Online Form`,
         metaTitle: catMetaTitle || `${catName.trim()} 2026 | CareerSathi`,
@@ -848,7 +1389,7 @@ export default function EnterpriseAdminCommandCenter() {
         focusKeyword: catFocusKeyword || `${catName.trim()} 2026`,
         shortIntro:
           catShortIntro ||
-          `All official notifications, dates, and direct links for ${catName.trim()} 2026.`,
+          `All official notifications, dates, and direct links for <strong>${catName.trim()} 2026</strong>.`,
         seoBottomContent:
           catSeoBottom ||
           `<h2>About ${catName.trim()} 2026</h2><p>Stay updated with all official announcements for ${catName.trim()}.</p>`,
@@ -858,9 +1399,9 @@ export default function EnterpriseAdminCommandCenter() {
       saveCategoriesToStorage([...categories, newCat]);
       logAuditAction(
         parentObj ? `Created Subcategory under ${parentObj.name}` : 'Created Main Category',
-        catName
+        `${catName} (${finalSafeSlug})`
       );
-      alert('🚀 New Category / Subcategory Created with Full SEO Schema!');
+      alert(`🚀 New Category / Subcategory Created! SEO URL Slug: ${finalSafeSlug}`);
     }
 
     resetCategoryForm();
@@ -884,7 +1425,7 @@ export default function EnterpriseAdminCommandCenter() {
   const handleEditCategoryClick = (cat: CategoryItem) => {
     setEditingCatId(cat.id);
     setCatName(cat.name);
-    setCatSlug(cat.slug);
+    setCatSlug(sanitizeSeoSlug(cat.slug, true));
     setCatParentId(cat.parentId || 'MAIN');
     setCatTargetExam(cat.targetExamTag || 'ALL');
     setCatH1(cat.h1Title || '');
@@ -934,7 +1475,8 @@ export default function EnterpriseAdminCommandCenter() {
     if (hasFaqSchema) score += 20;
     checks.push({ label: 'Rich Snippet FAQ Schema (2+ FAQs)', passed: hasFaqSchema, points: 20 });
 
-    const hasInternalToolLink = importantLinks.some((l) => l.url.includes('/tools/'));
+    const hasInternalToolLink =
+      importantLinks.some((l) => l.url.includes('/tools/')) || classicContent.includes('/tools/');
     if (hasInternalToolLink) score += 20;
     checks.push({ label: 'Internal Link to Student Form Tool', passed: hasInternalToolLink, points: 20 });
 
@@ -951,6 +1493,9 @@ export default function EnterpriseAdminCommandCenter() {
       alert('Bhai, pehle Post Title likh de, tabhi AI pura post, dates, FAQs aur SEO tags auto-fill karega!');
       return;
     }
+
+    const cleanAutoSlug = sanitizeSeoSlug(title, true);
+    setSlug(cleanAutoSlug);
 
     const lowerTitle = title.toLowerCase();
     let detectedCategory = category;
@@ -998,9 +1543,10 @@ export default function EnterpriseAdminCommandCenter() {
       { label: 'CBT Exam Date', date: 'As Per Official Schedule' },
     ]);
 
-    setClassicContent(`
-<h2>${title} — Overview & Official Notification</h2>
+    setClassicContent(`<h2>${title} — Overview &amp; Official Notification</h2>
 <p>The examination authority has officially published the latest update for <strong>${title}</strong>. Candidates preparing for <strong>${detectedExam}</strong> exams can check the complete eligibility criteria, age relaxation, document upload specifications, and direct links below.</p>
+
+<div style="background-color: #eff6ff; border-left: 4px solid #2563eb; padding: 12px 16px; border-radius: 8px; margin: 12px 0; color: #1e3a8a;"><strong>💡 Important Candidate Note:</strong> Format your Photo, 6.0×2.0 cm Signature, and PDF Certificates in 1 click using the free <a href="/tools/form-tool" class="text-blue-600 font-bold underline">CareerSathi Form Master Tool</a> before filling the form.</div>
 
 <h3>📋 Document Upload Specifications (2025–26 Rules)</h3>
 <ul>
@@ -1010,8 +1556,11 @@ export default function EnterpriseAdminCommandCenter() {
 </ul>
 
 <h3>🚀 How to Apply Online for ${title}</h3>
-<p>1. Use the <strong>CareerSathi All-in-One Form Tool</strong> linked below to resize your Photo, Signature & PDF in 1 click.<br/>2. Click on the Official Apply Online link.<br/>3. Complete One-Time Registration (OTR), upload documents, pay the fee, and print the final form.</p>
-`);
+<ol>
+  <li>Use the <strong>CareerSathi All-in-One Form Tool</strong> linked below to resize your Photo, Signature &amp; PDF in 1 click.</li>
+  <li>Click on the Official Apply Online link in the Important Links table.</li>
+  <li>Complete One-Time Registration (OTR), upload documents, pay the fee, and print the final form.</li>
+</ol>`);
 
     setImportantLinks([
       { text: 'Apply Online / Official Login', url: 'https://ssc.gov.in' },
@@ -1044,7 +1593,8 @@ export default function EnterpriseAdminCommandCenter() {
 
   const handleSubmitPost = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !slug) {
+    const finalSafeSlug = sanitizeSeoSlug(slug || title, true);
+    if (!title.trim() || !finalSafeSlug) {
       alert('Please fill Post Title!');
       return;
     }
@@ -1052,19 +1602,9 @@ export default function EnterpriseAdminCommandCenter() {
     const mainCatObj = mainCategories.find((c) => c.name === category);
     const subCatObj = categories.find((c) => c.parentId !== null && c.name === subCategory);
 
-    const categorySlugVal =
-      mainCatObj?.slug ||
-      category
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '');
-
+    const categorySlugVal = sanitizeSeoSlug(mainCatObj?.slug || category, true);
     const subCategorySlugVal = subCategory
-      ? subCatObj?.slug ||
-        subCategory
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/(^-|-$)/g, '')
+      ? sanitizeSeoSlug(subCatObj?.slug || subCategory, true)
       : '';
 
     const nowDateTime = new Date().toLocaleString('en-IN', {
@@ -1092,8 +1632,8 @@ export default function EnterpriseAdminCommandCenter() {
         if (p.id === editingId) {
           return {
             ...p,
-            title,
-            slug,
+            title: title.trim(),
+            slug: finalSafeSlug,
             category,
             categorySlug: categorySlugVal,
             subCategory: subCategory || undefined,
@@ -1108,7 +1648,7 @@ export default function EnterpriseAdminCommandCenter() {
             classicContent,
             importantLinks,
             faqs,
-            metaTitle: metaTitle || title,
+            metaTitle: metaTitle || title.trim(),
             metaDesc: metaDesc || shortDescription,
             focusKeyword,
             indexedPinged: true,
@@ -1117,14 +1657,14 @@ export default function EnterpriseAdminCommandCenter() {
         return p;
       });
       savePostsToStorage(updatedPosts);
-      logAuditAction('Updated Post (Revision Saved)', title);
+      logAuditAction('Updated Post (Revision Saved)', `${title} (/posts/${finalSafeSlug})`);
       setEditingId(null);
-      alert('✅ Post Updated, Revision Snapshot Saved & Google Indexing API Pinged!');
+      alert(`✅ Post Updated! Clean SEO URL: /posts/${finalSafeSlug}`);
     } else {
       const newPost: Post = {
         id: Date.now().toString(),
-        title,
-        slug,
+        title: title.trim(),
+        slug: finalSafeSlug,
         category,
         categorySlug: categorySlugVal,
         subCategory: subCategory || undefined,
@@ -1140,14 +1680,14 @@ export default function EnterpriseAdminCommandCenter() {
         classicContent,
         importantLinks,
         faqs,
-        metaTitle: metaTitle || title,
+        metaTitle: metaTitle || title.trim(),
         metaDesc: metaDesc || shortDescription,
         focusKeyword,
         indexedPinged: true,
       };
       savePostsToStorage([newPost, ...posts]);
-      logAuditAction('Published New Post', title);
-      alert('🚀 Post Published Live & Google Indexing API Pinged!');
+      logAuditAction('Published New Post', `${title} (/posts/${finalSafeSlug})`);
+      alert(`🚀 Post Published Live! Clean SEO URL: /posts/${finalSafeSlug}`);
     }
 
     resetForm();
@@ -1177,7 +1717,7 @@ export default function EnterpriseAdminCommandCenter() {
       { label: 'Application Begin', date: '' },
       { label: 'Last Date', date: '' },
     ]);
-    setClassicContent('<p>Write detailed information here...</p>');
+    setClassicContent('<h2>Official Notification &amp; Overview</h2><p>Write detailed information here...</p>');
     setImportantLinks([
       { text: 'Apply Online', url: '' },
       { text: 'Resize Photo & Sign (Form Tool)', url: '/tools/form-tool' },
@@ -1191,7 +1731,7 @@ export default function EnterpriseAdminCommandCenter() {
   const handleEditClick = (post: Post) => {
     setEditingId(post.id);
     setTitle(post.title);
-    setSlug(post.slug);
+    setSlug(sanitizeSeoSlug(post.slug || post.title, true));
     setCategory(post.category);
     setSubCategory(post.subCategory || '');
     setTargetExamTag(post.targetExamTag || 'SSC');
@@ -1247,19 +1787,16 @@ export default function EnterpriseAdminCommandCenter() {
 
     const generatedBatch: Post[] = examNames.map((examName, idx) => {
       const fullTitle = `${examName} ${pSeoCategory} ${pSeoYear} — Apply Online & Notification`;
-      const slugVal = fullTitle
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '');
+      const slugVal = sanitizeSeoSlug(`${examName}-${pSeoCategory}-${pSeoYear}`, true);
 
       return {
         id: `${Date.now()}-${idx}`,
         title: fullTitle,
         slug: slugVal,
         category: pSeoCategory,
-        categorySlug: mainCatObj?.slug || 'latest-jobs',
+        categorySlug: sanitizeSeoSlug(mainCatObj?.slug || 'latest-jobs', true),
         subCategory: pSeoSubCategory || undefined,
-        subCategorySlug: subCatObj?.slug || undefined,
+        subCategorySlug: subCatObj?.slug ? sanitizeSeoSlug(subCatObj.slug, true) : undefined,
         targetExamTag: examName.toUpperCase().includes('SSC')
           ? 'SSC'
           : examName.toUpperCase().includes('RRB')
@@ -1276,7 +1813,7 @@ export default function EnterpriseAdminCommandCenter() {
           { label: 'Notification Released', date: `Nov ${pSeoYear}` },
           { label: 'Last Date to Apply', date: `Dec ${pSeoYear}` },
         ],
-        classicContent: `<h2>${fullTitle}</h2><p>Candidates applying for <strong>${examName} ${pSeoYear}</strong> can verify official dates, vacancy breakdown (${pSeoVacancyNote}), and prepare their required documents (Photo, 6x2cm Signature, Left Thumb & PDF Certificates) using our free online tools below.</p>`,
+        classicContent: `<h2>${fullTitle}</h2><p>Candidates applying for <strong>${examName} ${pSeoYear}</strong> can verify official dates, vacancy breakdown (${pSeoVacancyNote}), and prepare their required documents (Photo, 6x2cm Signature, Left Thumb &amp; PDF Certificates) using our free online tools below.</p>`,
         importantLinks: [
           { text: 'Official Portal Link', url: 'https://ssc.gov.in' },
           { text: '⚡ Resize Photo & Signature (All-in-One Form Tool)', url: '/tools/form-tool' },
@@ -1302,13 +1839,13 @@ export default function EnterpriseAdminCommandCenter() {
     savePostsToStorage([...generatedBatch, ...posts]);
     logAuditAction('Ran Programmatic SEO Batch', `${generatedBatch.length} Landing Posts Created`);
     setPingStatusMsg(
-      `✅ Generated ${generatedBatch.length} SEO-Optimized Exam Pages & Pinged Google Sitemap Indexing API!`
+      `✅ Generated ${generatedBatch.length} SEO-Optimized Exam Pages with Clean Slugs & Pinged Google Sitemap Indexing API!`
     );
     setTimeout(() => setPingStatusMsg(''), 5000);
   };
 
   // ==========================================
-  // 9. MOCK TESTS BUILDER (100% SYNCED KEYS)
+  // 9. MOCK TESTS BUILDER (100% SYNCED KEYS + SLUG GUARD)
   // ==========================================
   const handleAIAddSampleQuestions = () => {
     const sampleQs: Question[] = [
@@ -1336,23 +1873,20 @@ export default function EnterpriseAdminCommandCenter() {
 
   const handleMockTestSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!testTitle) {
-      alert('Please enter Test Title!');
+    const generatedSlug = sanitizeSeoSlug(testSlug || testTitle, true);
+    if (!testTitle.trim() || !generatedSlug) {
+      alert('Please enter a valid Test Title!');
       return;
     }
 
-    const generatedSlug = testTitle
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
     const mins = Number(testTimeMinutes) || 30;
     const marks = questionsList.length * 4;
 
     const newTest: MockTest = {
       id: Date.now().toString(),
       slug: generatedSlug,
-      title: testTitle,
-      testTitle: testTitle,
+      title: testTitle.trim(),
+      testTitle: testTitle.trim(),
       category: testCategory,
       examCategory: testCategory,
       duration: mins,
@@ -1367,9 +1901,10 @@ export default function EnterpriseAdminCommandCenter() {
     };
 
     saveMockTestsToStorage([newTest, ...mockTests]);
-    logAuditAction('Published CBT Mock Test', testTitle);
-    alert('🎯 CBT Mock Test Published & Synced on Homepage!');
+    logAuditAction('Published CBT Mock Test', `${testTitle} (/mock-tests/${generatedSlug})`);
+    alert(`🎯 CBT Mock Test Published! Clean URL: /mock-tests/${generatedSlug}`);
     setTestTitle('');
+    setTestSlug('');
     setQuestionsList([{ id: '1', questionText: '', options: ['', '', '', ''], correctOptionIndex: 0 }]);
     setActiveTab('mock-tests');
   };
@@ -1424,16 +1959,6 @@ export default function EnterpriseAdminCommandCenter() {
     e.target.value = '';
   };
 
-  const wrapClassicTag = (openTag: string, closeTag: string, placeholder: string) => {
-    const ta = classicTextareaRef.current;
-    if (!ta) return;
-    const start = ta.selectionStart;
-    const end = ta.selectionEnd;
-    const val = ta.value;
-    const sel = val.substring(start, end) || placeholder;
-    setClassicContent(val.substring(0, start) + `${openTag}${sel}${closeTag}` + val.substring(end));
-  };
-
   const filteredPosts = posts.filter(
     (p) =>
       p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1458,7 +1983,7 @@ export default function EnterpriseAdminCommandCenter() {
               <p className="text-[11px] text-slate-400">Enterprise RBAC &amp; SEO Command Center</p>
             </div>
             <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold">
-              v3.8 SEO
+              v4.0 PRO
             </span>
           </div>
 
@@ -1530,7 +2055,7 @@ export default function EnterpriseAdminCommandCenter() {
                   : 'hover:bg-slate-800 text-amber-300'
               }`}
             >
-              ➕ Create Post (Live SEO Score)
+              ➕ Create Post (Block Editor)
             </button>
 
             <button
@@ -1622,7 +2147,7 @@ export default function EnterpriseAdminCommandCenter() {
                   : 'hover:bg-slate-800 text-slate-300'
               }`}
             >
-              📄 Static Pages ({pages.length})
+              📄 Static Pages (Block Editor) ({pages.length})
             </button>
 
             <button
@@ -1676,7 +2201,8 @@ export default function EnterpriseAdminCommandCenter() {
                 <h1 className="text-2xl font-black text-white">👑 Executive Command Center</h1>
                 <p className="text-xs text-slate-400">
                   Logged in as <strong className="text-amber-400">{currentStaff.name}</strong> • Role:{' '}
-                  <strong className="uppercase text-emerald-400">{currentStaff.role}</strong>
+                  <strong className="uppercase text-emerald-400">{currentStaff.role}</strong> •{' '}
+                  <span className="text-cyan-400 font-bold">🛡️ Auto Slug Guard Active</span>
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -1715,7 +2241,7 @@ export default function EnterpriseAdminCommandCenter() {
               <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800">
                 <span className="text-[11px] text-slate-400 font-bold uppercase">Live Exam Posts</span>
                 <div className="text-3xl font-black text-blue-400 mt-1">{posts.length}</div>
-                <span className="text-[10px] text-emerald-400 font-bold">✓ JSON-LD Schema Active</span>
+                <span className="text-[10px] text-emerald-400 font-bold">✓ Gutenberg + Schema Active</span>
               </div>
 
               <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800">
@@ -1824,8 +2350,8 @@ export default function EnterpriseAdminCommandCenter() {
         {/* ========================================================= */}
         {activeTab === 'categories' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 text-xs">
-            {/* LEFT FORM: CREATE / EDIT CATEGORY OR SUBCATEGORY WITH FULL SEO */}
-            <div className="lg:col-span-6 space-y-4">
+            {/* LEFT FORM: CREATE / EDIT CATEGORY OR SUBCATEGORY WITH FULL GUTENBERG SEO */}
+            <div className="lg:col-span-7 space-y-4">
               <form
                 onSubmit={handleSaveCategory}
                 className="bg-slate-900 p-5 rounded-2xl border border-cyan-500/40 space-y-4 shadow-xl"
@@ -1833,7 +2359,7 @@ export default function EnterpriseAdminCommandCenter() {
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
                   <div>
                     <span className="text-[10px] bg-cyan-500 text-slate-950 font-black px-2 py-0.5 rounded uppercase">
-                      Google Silo SEO Architecture
+                      Google Silo SEO + Block Editor
                     </span>
                     <h2 className="text-lg font-black text-white mt-1">
                       {editingCatId ? '✏️ Edit Category / Subcategory SEO' : '➕ Create Category or Subcategory'}
@@ -1898,12 +2424,7 @@ export default function EnterpriseAdminCommandCenter() {
                       value={catName}
                       onChange={(e) => {
                         setCatName(e.target.value);
-                        setCatSlug(
-                          e.target.value
-                            .toLowerCase()
-                            .replace(/[^a-z0-9]+/g, '-')
-                            .replace(/(^-|-$)/g, '')
-                        );
+                        setCatSlug(sanitizeSeoSlug(e.target.value, true));
                       }}
                       placeholder="e.g. UP Sarkari Jobs or Defence Jobs"
                       className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold"
@@ -1911,15 +2432,26 @@ export default function EnterpriseAdminCommandCenter() {
                   </div>
 
                   <div>
-                    <label className="block font-bold text-slate-300 mb-1">SEO URL Slug *</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="font-bold text-slate-300">SEO URL Slug *</label>
+                      <span className="text-[10px] text-emerald-400 font-bold">🛡️ Auto-Sanitized</span>
+                    </div>
                     <input
                       type="text"
                       required
                       value={catSlug}
-                      onChange={(e) => setCatSlug(e.target.value)}
+                      onChange={(e) => setCatSlug(sanitizeSeoSlug(e.target.value, false))}
+                      onBlur={(e) => setCatSlug(sanitizeSeoSlug(e.target.value, true))}
                       placeholder="e.g. up-sarkari-jobs"
-                      className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-400 font-mono"
+                      className="w-full p-2.5 bg-slate-950 border border-emerald-500/40 rounded-xl text-emerald-300 font-mono"
                     />
+                    <div className="text-[10px] text-slate-500 font-mono mt-1 truncate">
+                      URL: /category/
+                      {catParentId !== 'MAIN'
+                        ? `${mainCategories.find((m) => m.id === catParentId)?.slug || 'main'}/`
+                        : ''}
+                      {catSlug || 'your-clean-slug'}
+                    </div>
                   </div>
                 </div>
 
@@ -1974,31 +2506,27 @@ export default function EnterpriseAdminCommandCenter() {
                   />
                 </div>
 
-                <div>
-                  <label className="block font-bold text-slate-300 mb-1">
-                    Top Intro Summary (Below H1 on Landing Page)
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={catShortIntro}
-                    onChange={(e) => setCatShortIntro(e.target.value)}
-                    placeholder="2-line intro text helping students understand this category..."
-                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white"
-                  />
-                </div>
+                {/* UPGRADE 2A: TOP INTRO SUMMARY WITH RICH STYLING (BOLD, COLOR, SIZE, LINK, DUAL MODE) */}
+                <GutenbergSmartEditor
+                  label="✨ Top Intro Summary (Below H1 on Landing Page)"
+                  badgeText="Bold, Color, Size & HTML/Visual"
+                  variant="compact"
+                  minHeight="110px"
+                  value={catShortIntro}
+                  onChange={setCatShortIntro}
+                  placeholder="Write a 2-3 line intro summary below the H1 heading. Select any text to make it Bold, Colored, Larger, or Linked..."
+                />
 
-                <div>
-                  <label className="block font-bold text-amber-400 mb-1">
-                    Bottom Long-Form SEO Content (HTML Supported for Google Ranking)
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={catSeoBottom}
-                    onChange={(e) => setCatSeoBottom(e.target.value)}
-                    placeholder="<h2>Complete Guide...</h2><p>Rich SEO content at the bottom of the category page...</p>"
-                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
-                  />
-                </div>
+                {/* UPGRADE 2B: BOTTOM LONG-FORM SEO CONTENT WITH FULL GUTENBERG BLOCK + CODE EDITOR */}
+                <GutenbergSmartEditor
+                  label="🚀 Bottom Long-Form SEO Content (Google Ranking Guide)"
+                  badgeText="Full Gutenberg Blocks + Visual / Code"
+                  variant="full"
+                  minHeight="240px"
+                  value={catSeoBottom}
+                  onChange={setCatSeoBottom}
+                  placeholder="Add H2/H3 headings, vacancy tables, bullet points, images, links, and long-form SEO articles..."
+                />
 
                 {/* Category FAQs for Rich Snippet Schema */}
                 <div className="space-y-2 border-t border-slate-800 pt-3">
@@ -2063,7 +2591,7 @@ export default function EnterpriseAdminCommandCenter() {
             </div>
 
             {/* RIGHT LIST: HIERARCHICAL TREE OF CATEGORIES & SUBCATEGORIES */}
-            <div className="lg:col-span-6 space-y-4">
+            <div className="lg:col-span-5 space-y-4">
               <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                   <div>
@@ -2197,7 +2725,7 @@ export default function EnterpriseAdminCommandCenter() {
                     🚀 Programmatic SEO Bulk Page Generator
                   </h1>
                   <p className="text-xs text-slate-400">
-                    Comma-separated exams likho aur 1 click mein Category + Subcategory ke sath saare SEO notifications ready karo!
+                    Comma-separated exams likho aur 1 click mein Category + Subcategory + Clean SEO Slugs ke sath saare notifications ready karo!
                   </p>
                 </div>
               </div>
@@ -2448,7 +2976,7 @@ export default function EnterpriseAdminCommandCenter() {
               <table className="min-w-full divide-y divide-slate-800 text-xs">
                 <thead className="bg-slate-950">
                   <tr>
-                    <th className="px-4 py-3 text-left font-bold text-slate-400">Title &amp; Slug</th>
+                    <th className="px-4 py-3 text-left font-bold text-slate-400">Title &amp; Clean Slug</th>
                     <th className="px-4 py-3 text-left font-bold text-slate-400">
                       Category &amp; Subcategory
                     </th>
@@ -2468,7 +2996,7 @@ export default function EnterpriseAdminCommandCenter() {
                       <tr key={p.id} className="hover:bg-slate-800/40">
                         <td className="px-4 py-3">
                           <div className="font-bold text-blue-400 text-sm">{p.title}</div>
-                          <div className="text-[11px] text-slate-500 font-mono">/posts/{p.slug}</div>
+                          <div className="text-[11px] text-emerald-400 font-mono">/posts/{p.slug}</div>
                         </td>
                         <td className="px-4 py-3">
                           <span className="px-2 py-0.5 bg-slate-800 rounded text-slate-200 font-bold">
@@ -2522,7 +3050,7 @@ export default function EnterpriseAdminCommandCenter() {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 6: ADD / EDIT POST WITH CATEGORY + SUBCATEGORY        */}
+        {/* TAB 6: ADD / EDIT POST WITH GUTENBERG BLOCK EDITOR        */}
         {/* ========================================================= */}
         {activeTab === 'add-post' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -2536,7 +3064,7 @@ export default function EnterpriseAdminCommandCenter() {
                   onClick={() => setShowPreview(!showPreview)}
                   className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black"
                 >
-                  {showPreview ? '← Back to Editor' : '👁️ Live Preview'}
+                  {showPreview ? '← Back to Block Editor' : '👁️ Full Page Preview'}
                 </button>
               </div>
 
@@ -2639,12 +3167,7 @@ export default function EnterpriseAdminCommandCenter() {
                         value={title}
                         onChange={(e) => {
                           setTitle(e.target.value);
-                          setSlug(
-                            e.target.value
-                              .toLowerCase()
-                              .replace(/[^a-z0-9]+/g, '-')
-                              .replace(/(^-|-$)/g, '')
-                          );
+                          setSlug(sanitizeSeoSlug(e.target.value, true));
                         }}
                         placeholder="e.g. Bihar BPSC 72nd Combined Competitive Exam 2026 Online Form"
                         className="w-full p-3 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold text-sm"
@@ -2653,23 +3176,34 @@ export default function EnterpriseAdminCommandCenter() {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block font-bold text-slate-300 mb-1">URL Slug</label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="font-bold text-slate-300">SEO URL Slug *</label>
+                          <span className="text-[10px] text-emerald-400 font-bold">
+                            🛡️ Special Chars Blocked
+                          </span>
+                        </div>
                         <input
                           type="text"
                           required
                           value={slug}
-                          onChange={(e) => setSlug(e.target.value)}
-                          className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-400 font-mono"
+                          onChange={(e) => setSlug(sanitizeSeoSlug(e.target.value, false))}
+                          onBlur={(e) => setSlug(sanitizeSeoSlug(e.target.value, true))}
+                          placeholder="auto-generated-clean-slug"
+                          className="w-full p-2.5 bg-slate-950 border border-emerald-500/40 rounded-xl text-emerald-300 font-mono"
                         />
+                        <div className="text-[10px] text-slate-500 font-mono mt-1 truncate">
+                          Live URL: https://career3.vercel.app/posts/{slug || 'clean-url-slug'}
+                        </div>
                       </div>
                       <div>
                         <label className="block font-bold text-slate-300 mb-1">
-                          Short Description
+                          Short Summary Description
                         </label>
                         <input
                           type="text"
                           value={shortDescription}
                           onChange={(e) => setShortDescription(e.target.value)}
+                          placeholder="2-line summary shown at top of post..."
                           className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white"
                         />
                       </div>
@@ -2723,78 +3257,16 @@ export default function EnterpriseAdminCommandCenter() {
                     ))}
                   </div>
 
-                  {/* Dual Mode Content Editor */}
-                  <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="font-black text-amber-400">
-                        Post Content (HTML / Visual Mode)
-                      </span>
-                      <div className="flex gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
-                        <button
-                          type="button"
-                          onClick={() => setEditorMode('code')}
-                          className={`px-2.5 py-1 rounded font-bold ${
-                            editorMode === 'code' ? 'bg-blue-600 text-white' : 'text-slate-400'
-                          }`}
-                        >
-                          💻 HTML
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditorMode('visual')}
-                          className={`px-2.5 py-1 rounded font-bold ${
-                            editorMode === 'visual' ? 'bg-blue-600 text-white' : 'text-slate-400'
-                          }`}
-                        >
-                          👁️ Visual
-                        </button>
-                      </div>
-                    </div>
-
-                    {editorMode === 'code' && (
-                      <div className="flex flex-wrap gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => wrapClassicTag('<h2>', '</h2>', 'Heading')}
-                          className="px-2.5 py-1 bg-slate-800 rounded font-bold"
-                        >
-                          H2
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => wrapClassicTag('<h3>', '</h3>', 'Subheading')}
-                          className="px-2.5 py-1 bg-slate-800 rounded font-bold"
-                        >
-                          H3
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => wrapClassicTag('<strong>', '</strong>', 'Bold')}
-                          className="px-2.5 py-1 bg-slate-800 rounded font-bold"
-                        >
-                          Bold
-                        </button>
-                      </div>
-                    )}
-
-                    {editorMode === 'code' ? (
-                      <textarea
-                        ref={classicTextareaRef}
-                        rows={8}
-                        value={classicContent}
-                        onChange={(e) => setClassicContent(e.target.value)}
-                        className="w-full p-3 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
-                      />
-                    ) : (
-                      <div
-                        contentEditable
-                        suppressContentEditableWarning
-                        onBlur={(e) => setClassicContent(e.currentTarget.innerHTML)}
-                        dangerouslySetInnerHTML={{ __html: classicContent }}
-                        className="w-full min-h-[180px] p-4 bg-white text-slate-900 rounded-xl prose max-w-none"
-                      />
-                    )}
-                  </div>
+                  {/* UPGRADE 3: NOTION / GUTENBERG BLOCK + VISUAL + HTML CODE POST EDITOR */}
+                  <GutenbergSmartEditor
+                    label="📝 Post Detailed Content (Notion / Gutenberg Block Editor)"
+                    badgeText="Blocks + Visual + HTML Code"
+                    variant="full"
+                    minHeight="320px"
+                    value={classicContent}
+                    onChange={setClassicContent}
+                    placeholder="Write complete exam details, vacancy breakdown tables, eligibility, syllabus, and document rules..."
+                  />
 
                   {/* Important Links Editor */}
                   <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-3">
@@ -2839,6 +3311,57 @@ export default function EnterpriseAdminCommandCenter() {
                         >
                           ✕
                         </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Post FAQs Editor */}
+                  <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="font-black text-emerald-400">
+                        ❓ Post FAQ Schema (For Google People Also Ask)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setFaqs([...faqs, { question: '', answer: '' }])}
+                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-bold"
+                      >
+                        + Add FAQ
+                      </button>
+                    </div>
+                    {faqs.map((fq, idx) => (
+                      <div key={idx} className="space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-800">
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="Question (e.g. What is the last date to apply?)"
+                            value={fq.question}
+                            onChange={(e) => {
+                              const up = [...faqs];
+                              up[idx].question = e.target.value;
+                              setFaqs(up);
+                            }}
+                            className="flex-1 p-2 bg-slate-900 border border-slate-700 rounded-lg text-white font-bold"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setFaqs(faqs.filter((_, i) => i !== idx))}
+                            className="px-2.5 bg-rose-950 text-rose-400 rounded-lg font-bold"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Answer..."
+                          value={fq.answer}
+                          onChange={(e) => {
+                            const up = [...faqs];
+                            up[idx].answer = e.target.value;
+                            setFaqs(up);
+                          }}
+                          className="w-full p-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-300"
+                        />
                       </div>
                     ))}
                   </div>
@@ -2955,6 +3478,7 @@ export default function EnterpriseAdminCommandCenter() {
                     <h3 className="font-black text-sm text-white mt-1">
                       {t.testTitle || t.title}
                     </h3>
+                    <p className="text-[11px] text-emerald-400 font-mono">/mock-tests/{t.slug}</p>
                     <p className="text-xs text-slate-400">
                       ⏱️ {t.totalTimeMinutes || t.duration} Mins • ❓ {t.questions?.length || 0} Qs
                     </p>
@@ -2999,15 +3523,32 @@ export default function EnterpriseAdminCommandCenter() {
             </div>
 
             <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="sm:col-span-2">
-                <label className="block font-bold text-slate-300 mb-1">Mock Test Title</label>
+              <div>
+                <label className="block font-bold text-slate-300 mb-1">Mock Test Title *</label>
                 <input
                   type="text"
                   required
                   value={testTitle}
-                  onChange={(e) => setTestTitle(e.target.value)}
+                  onChange={(e) => {
+                    setTestTitle(e.target.value);
+                    setTestSlug(sanitizeSeoSlug(e.target.value, true));
+                  }}
                   placeholder="e.g. SSC GD Constable Full Mock Set 1"
                   className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-emerald-400 mb-1">
+                  🛡️ Protected SEO Slug
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={testSlug}
+                  onChange={(e) => setTestSlug(sanitizeSeoSlug(e.target.value, false))}
+                  onBlur={(e) => setTestSlug(sanitizeSeoSlug(e.target.value, true))}
+                  placeholder="ssc-gd-constable-full-mock-set-1"
+                  className="w-full p-2.5 bg-slate-950 border border-emerald-500/40 rounded-xl text-emerald-300 font-mono"
                 />
               </div>
               <div>
@@ -3244,66 +3785,179 @@ export default function EnterpriseAdminCommandCenter() {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 10: STATIC PAGES & GLOBAL BACKUP                      */}
+        {/* TAB 10: STATIC PAGES (GUTENBERG BLOCK EDITOR + TEMPLATES) */}
         {/* ========================================================= */}
         {(activeTab === 'pages' || activeTab === 'add-page') && (
-          <div className="space-y-5 max-w-4xl text-xs">
-            <h1 className="text-2xl font-black">📄 Static Pages ({pages.length})</h1>
-            <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-3">
-              <input
-                type="text"
-                placeholder="Page Title (e.g. Privacy Policy, Disclaimer, About Us)"
-                value={pageTitle}
-                onChange={(e) => {
-                  setPageTitle(e.target.value);
-                  setPageSlug(
-                    e.target.value
-                      .toLowerCase()
-                      .replace(/[^a-z0-9]+/g, '-')
-                      .replace(/(^-|-$)/g, '')
-                  );
-                }}
-                className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold"
-              />
-              <textarea
-                rows={5}
+          <div className="space-y-5 max-w-5xl text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h1 className="text-2xl font-black">
+                  📄 Static Pages Studio ({pages.length})
+                </h1>
+                <p className="text-slate-400">
+                  Create or edit Privacy Policy, Disclaimer, About Us, Contact Us &amp; Terms using the Gutenberg Block Editor.
+                </p>
+              </div>
+
+              {/* 1-Click Legal & Static Page Templates */}
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPageTitle('Privacy Policy');
+                    setPageSlug('privacy-policy');
+                    setPageContent(
+                      `<h2>Privacy Policy for CareerSathi</h2><p>At <strong>CareerSathi</strong>, accessible from https://career3.vercel.app, one of our main priorities is the privacy of our student visitors.</p><h3>100% Client-Side Document Tools</h3><p>All photos, signatures, and PDF documents processed inside CareerSathi Form Tools are resized <strong>100% locally inside your browser</strong> and are never uploaded to any external server.</p>`
+                    );
+                  }}
+                  className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 rounded-lg font-bold"
+                >
+                  ⚡ Load Privacy Policy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPageTitle('Disclaimer');
+                    setPageSlug('disclaimer');
+                    setPageContent(
+                      `<h2>Official Disclaimer</h2><p><strong>CareerSathi</strong> is an independent educational information portal and student utility platform. We are not affiliated with any government recruitment board.</p><p>All job notifications, admit card dates, and result links are summarized from official government portals for student convenience.</p>`
+                    );
+                  }}
+                  className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-lg font-bold"
+                >
+                  ⚡ Load Disclaimer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPageTitle('About Us');
+                    setPageSlug('about-us');
+                    setPageContent(
+                      `<h2>About CareerSathi — India's Student Exam Portal</h2><p><strong>CareerSathi</strong> empowers millions of Indian students preparing for SSC, Railway RRB, IBPS Banking, UPSC, NEET, JEE, and State Government exams with real-time job alerts and free 1-click document resizing tools.</p>`
+                    );
+                  }}
+                  className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-300 rounded-lg font-bold"
+                >
+                  ⚡ Load About Us
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Page Title *</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Privacy Policy, Disclaimer, About Us"
+                    value={pageTitle}
+                    onChange={(e) => {
+                      setPageTitle(e.target.value);
+                      setPageSlug(sanitizeSeoSlug(e.target.value, true));
+                    }}
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-bold text-slate-300">Protected Page Slug *</label>
+                    <span className="text-[10px] text-emerald-400 font-bold">
+                      🛡️ SEO Slug Protected
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="privacy-policy"
+                    value={pageSlug}
+                    onChange={(e) => setPageSlug(sanitizeSeoSlug(e.target.value, false))}
+                    onBlur={(e) => setPageSlug(sanitizeSeoSlug(e.target.value, true))}
+                    className="w-full p-2.5 bg-slate-950 border border-emerald-500/40 rounded-xl text-emerald-300 font-mono"
+                  />
+                  <div className="text-[10px] text-slate-500 font-mono mt-1">
+                    Live URL: /pages/{pageSlug || 'page-slug'}
+                  </div>
+                </div>
+              </div>
+
+              {/* UPGRADE 4: COMPLETE GUTENBERG BLOCK + VISUAL + CODE EDITOR FOR STATIC PAGES */}
+              <GutenbergSmartEditor
+                label="📄 Static Page Content (Notion / Gutenberg Block Studio)"
+                badgeText="Full Gutenberg Blocks + Visual / Code"
+                variant="full"
+                minHeight="280px"
                 value={pageContent}
-                onChange={(e) => setPageContent(e.target.value)}
-                className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
+                onChange={setPageContent}
+                placeholder="Build your static page using headings, paragraphs, tables, callouts, links, or HTML code..."
               />
-              <button
-                type="button"
-                onClick={() => {
-                  if (!pageTitle) {
-                    alert('Please enter a Page Title!');
-                    return;
-                  }
-                  const np: CustomPage = {
-                    id: Date.now().toString(),
-                    title: pageTitle,
-                    slug: pageSlug,
-                    content: pageContent,
-                    publishedAt: new Date().toLocaleDateString('en-IN'),
-                  };
-                  savePagesToStorage([...pages, np]);
-                  logAuditAction('Created Static Page', pageTitle);
-                  setPageTitle('');
-                  setPageSlug('');
-                  alert('✅ Static Page Published!');
-                }}
-                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl"
-              >
-                + Publish Static Page
-              </button>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const finalSafeSlug = sanitizeSeoSlug(pageSlug || pageTitle, true);
+                    if (!pageTitle.trim() || !finalSafeSlug) {
+                      alert('Please enter a valid Page Title!');
+                      return;
+                    }
+                    if (editingPageId) {
+                      const updated = pages.map((pg) =>
+                        pg.id === editingPageId
+                          ? {
+                              ...pg,
+                              title: pageTitle.trim(),
+                              slug: finalSafeSlug,
+                              content: pageContent,
+                            }
+                          : pg
+                      );
+                      savePagesToStorage(updated);
+                      logAuditAction('Updated Static Page', `${pageTitle} (/pages/${finalSafeSlug})`);
+                      setEditingPageId(null);
+                      alert(`✅ Static Page Updated! URL: /pages/${finalSafeSlug}`);
+                    } else {
+                      const np: CustomPage = {
+                        id: Date.now().toString(),
+                        title: pageTitle.trim(),
+                        slug: finalSafeSlug,
+                        content: pageContent,
+                        publishedAt: new Date().toLocaleDateString('en-IN'),
+                      };
+                      savePagesToStorage([...pages, np]);
+                      logAuditAction('Created Static Page', `${pageTitle} (/pages/${finalSafeSlug})`);
+                      alert(`✅ Static Page Published! URL: /pages/${finalSafeSlug}`);
+                    }
+                    setPageTitle('');
+                    setPageSlug('');
+                    setPageContent('<h2>About This Page</h2><p>Write or insert blocks here...</p>');
+                  }}
+                  className="px-6 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl shadow-lg"
+                >
+                  {editingPageId ? '💾 Update Static Page' : '🚀 Publish Static Page'}
+                </button>
+                {editingPageId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingPageId(null);
+                      setPageTitle('');
+                      setPageSlug('');
+                      setPageContent('<h2>About This Page</h2><p>Write or insert blocks here...</p>');
+                    }}
+                    className="px-4 py-3.5 bg-slate-800 text-slate-300 font-bold rounded-xl"
+                  >
+                    Cancel Edit
+                  </button>
+                )}
+              </div>
             </div>
 
             {pages.length > 0 && (
               <div className="bg-slate-900 rounded-2xl border border-slate-800 divide-y divide-slate-800">
                 {pages.map((pg) => (
-                  <div key={pg.id} className="p-4 flex items-center justify-between">
+                  <div key={pg.id} className="p-4 flex flex-wrap items-center justify-between gap-2">
                     <div>
                       <div className="font-bold text-white text-sm">{pg.title}</div>
-                      <div className="text-[11px] text-slate-400 font-mono">/pages/{pg.slug}</div>
+                      <div className="text-[11px] text-emerald-400 font-mono">/pages/{pg.slug}</div>
                     </div>
                     <div className="flex gap-2">
                       <Link
@@ -3313,6 +3967,19 @@ export default function EnterpriseAdminCommandCenter() {
                       >
                         View ↗
                       </Link>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingPageId(pg.id);
+                          setPageTitle(pg.title);
+                          setPageSlug(sanitizeSeoSlug(pg.slug, true));
+                          setPageContent(pg.content);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        className="px-3 py-1.5 bg-blue-600/30 text-blue-300 rounded-lg font-bold"
+                      >
+                        Edit in Block Studio
+                      </button>
                       <button
                         type="button"
                         onClick={() =>
