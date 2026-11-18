@@ -151,9 +151,16 @@ interface AuditLogItem {
 
 interface Question {
   id: string;
+  section?: string;
+  difficulty?: 'Easy' | 'Medium' | 'Hard';
   questionText: string;
+  questionTextHi?: string;
+  imageUrl?: string;
   options: string[];
   correctOptionIndex: number;
+  explanation?: string;
+  marks?: number;
+  negativeMarks?: number;
 }
 
 interface MockTest {
@@ -163,9 +170,15 @@ interface MockTest {
   testTitle: string;
   category: string;
   examCategory: string;
+  subCategory?: string;
   duration: number;
   totalTimeMinutes: number;
+  positiveMarksPerQ?: number;
+  negativeMarksPerQ?: number;
   totalMarks: number;
+  isFree?: boolean;
+  isIndexed?: boolean;
+  seoIntro?: string;
   questions: Question[];
   publishedAt: string;
 }
@@ -757,13 +770,36 @@ export default function EnterpriseAdminCommandCenter() {
   const [pSeoVacancyNote, setPSeoVacancyNote] = useState('Various Posts');
   const [pingStatusMsg, setPingStatusMsg] = useState('');
 
-  // Mock Test Form States
+  // ==========================================
+  // UPGRADED MOCK TEST STUDIO STATES (TESTBOOK STYLE)
+  // ==========================================
+  const [editingTestId, setEditingTestId] = useState<string | null>(null);
   const [testTitle, setTestTitle] = useState('');
   const [testSlug, setTestSlug] = useState('');
   const [testCategory, setTestCategory] = useState('SSC');
-  const [testTimeMinutes, setTestTimeMinutes] = useState(30);
+  const [testTimeMinutes, setTestTimeMinutes] = useState(60);
+  const [positiveMarks, setPositiveMarks] = useState<number>(2);
+  const [negativeMarks, setNegativeMarks] = useState<number>(0.5);
+  const [isTestFree, setIsTestFree] = useState<boolean>(true);
+  const [isTestIndexed, setIsTestIndexed] = useState<boolean>(true);
+  const [testSeoIntro, setTestSeoIntro] = useState(
+    'Practice full-length TCS iON pattern CBT Mock Test with real-time exam timer, negative marking, and detailed step-by-step solutions.'
+  );
+  const [activeSectionFilter, setActiveSectionFilter] = useState<string>('ALL');
+  const [showBulkParserModal, setShowBulkParserModal] = useState<boolean>(false);
+  const [rawBulkText, setRawBulkText] = useState<string>('');
+
   const [questionsList, setQuestionsList] = useState<Question[]>([
-    { id: '1', questionText: '', options: ['', '', '', ''], correctOptionIndex: 0 },
+    {
+      id: '1',
+      section: 'General Intelligence & Reasoning',
+      difficulty: 'Medium',
+      questionText: '',
+      imageUrl: '',
+      options: ['', '', '', ''],
+      correctOptionIndex: 0,
+      explanation: '',
+    },
   ]);
 
   // Static Page Form States
@@ -1451,31 +1487,262 @@ export default function EnterpriseAdminCommandCenter() {
   };
 
   // ==========================================
-  // 9. MOCK TESTS BUILDER
+  // 9. ENTERPRISE MOCK TESTS BUILDER (TESTBOOK / OLIVEBOARD STANDARD)
   // ==========================================
+  const resetMockTestForm = () => {
+    setEditingTestId(null);
+    setTestTitle('');
+    setTestSlug('');
+    setTestCategory('SSC');
+    setTestTimeMinutes(60);
+    setPositiveMarks(2);
+    setNegativeMarks(0.5);
+    setIsTestFree(true);
+    setIsTestIndexed(true);
+    setTestSeoIntro(
+      'Practice full-length TCS iON pattern CBT Mock Test with real-time exam timer, negative marking, and detailed step-by-step solutions.'
+    );
+    setQuestionsList([
+      {
+        id: '1',
+        section: 'General Intelligence & Reasoning',
+        difficulty: 'Medium',
+        questionText: '',
+        imageUrl: '',
+        options: ['', '', '', ''],
+        correctOptionIndex: 0,
+        explanation: '',
+      },
+    ]);
+  };
+
+  const handleEditMockTestClick = (test: MockTest) => {
+    setEditingTestId(test.id);
+    setTestTitle(test.testTitle || test.title);
+    setTestSlug(sanitizeSeoSlug(test.slug || test.title, true));
+    setTestCategory(test.category || test.examCategory || 'SSC');
+    setTestTimeMinutes(test.totalTimeMinutes || test.duration || 60);
+    setPositiveMarks(test.positiveMarksPerQ ?? 2);
+    setNegativeMarks(test.negativeMarksPerQ ?? 0.5);
+    setIsTestFree(test.isFree ?? true);
+    setIsTestIndexed(test.isIndexed ?? true);
+    setTestSeoIntro(test.seoIntro || '');
+    setQuestionsList(
+      test.questions?.length
+        ? test.questions
+        : [
+            {
+              id: '1',
+              section: 'General Awareness',
+              difficulty: 'Medium',
+              questionText: '',
+              imageUrl: '',
+              options: ['', '', '', ''],
+              correctOptionIndex: 0,
+              explanation: '',
+            },
+          ]
+    );
+    setActiveTab('add-mock-test');
+  };
+
   const handleAIAddSampleQuestions = () => {
     const sampleQs: Question[] = [
-      { id: `q-${Date.now()}-1`, questionText: 'Which Article of the Indian Constitution deals with the Right to Equality?', options: ['Article 14 to 18', 'Article 19 to 22', 'Article 23 to 24', 'Article 32'], correctOptionIndex: 0 },
-      { id: `q-${Date.now()}-2`, questionText: 'If the ratio of cost price to selling price is 4 : 5, what is the profit percentage?', options: ['20%', '25%', '15%', '30%'], correctOptionIndex: 1 },
-      { id: `q-${Date.now()}-3`, questionText: 'Where is the headquarters of ISRO located?', options: ['New Delhi', 'Mumbai', 'Bengaluru', 'Hyderabad'], correctOptionIndex: 2 },
+      {
+        id: `q-${Date.now()}-1`,
+        section: 'General Awareness',
+        difficulty: 'Easy',
+        questionText: 'Which Article of the Indian Constitution deals with the Right to Equality?',
+        imageUrl: '',
+        options: ['Article 14 to 18', 'Article 19 to 22', 'Article 23 to 24', 'Article 32'],
+        correctOptionIndex: 0,
+        explanation: 'Part III of the Constitution (Articles 14–18) guarantees the Right to Equality to all citizens.',
+      },
+      {
+        id: `q-${Date.now()}-2`,
+        section: 'Quantitative Aptitude',
+        difficulty: 'Medium',
+        questionText: 'If the ratio of cost price (CP) to selling price (SP) is 4 : 5, what is the profit percentage?',
+        imageUrl: '',
+        options: ['20%', '25%', '15%', '30%'],
+        correctOptionIndex: 1,
+        explanation: 'Let CP = 4x and SP = 5x. Profit = 5x - 4x = x. Profit % = (x / 4x) × 100 = 25%.',
+      },
+      {
+        id: `q-${Date.now()}-3`,
+        section: 'General Intelligence & Reasoning',
+        difficulty: 'Hard',
+        questionText: 'Find the missing number in the series: 7, 15, 31, 63, ?',
+        imageUrl: '',
+        options: ['125', '127', '129', '131'],
+        correctOptionIndex: 1,
+        explanation: 'Pattern is ×2 + 1: (7×2)+1 = 15, (15×2)+1 = 31, (31×2)+1 = 63, so (63×2)+1 = 127.',
+      },
     ];
     setQuestionsList(sampleQs);
+  };
+
+  const handleDownloadCsvTemplate = () => {
+    const headers = 'Section,Difficulty,Question,OptionA,OptionB,OptionC,OptionD,CorrectOption(A/B/C/D),Explanation,ImageURL\n';
+    const sampleRow1 =
+      '"General Awareness","Easy","Where is the headquarters of ISRO located?","New Delhi","Mumbai","Bengaluru","Hyderabad","C","ISRO headquarters is located at Antariksh Bhavan in Bengaluru.",""\n';
+    const sampleRow2 =
+      '"Quantitative Aptitude","Medium","What is 25% of 400?","50","100","120","150","B","(25/100) * 400 = 100",""';
+    const blob = new Blob([headers + sampleRow1 + sampleRow2], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'careersathi-mock-test-template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleBulkFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const content = (ev.target?.result as string) || '';
+      if (file.name.endsWith('.json')) {
+        try {
+          const parsed = JSON.parse(content);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setQuestionsList((prev) => [...prev.filter((q) => q.questionText.trim() !== ''), ...parsed]);
+            alert(`✅ Imported ${parsed.length} questions from JSON!`);
+          }
+        } catch {
+          alert('❌ Invalid JSON format!');
+        }
+        return;
+      }
+
+      const lines = content.split(/\r?\n/).filter((line) => line.trim() !== '');
+      if (lines.length < 2) {
+        alert('❌ CSV file is empty or missing rows!');
+        return;
+      }
+
+      const importedQs: Question[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g)?.map((s) => s.replace(/^"|"$/g, '').trim()) || lines[i].split(',');
+        if (cols.length >= 7) {
+          const ansChar = (cols[7] || 'A').toUpperCase().trim();
+          const ansIdx = ansChar === 'B' ? 1 : ansChar === 'C' ? 2 : ansChar === 'D' ? 3 : 0;
+          importedQs.push({
+            id: `csv-${Date.now()}-${i}`,
+            section: cols[0] || 'General Awareness',
+            difficulty: (['Easy', 'Medium', 'Hard'].includes(cols[1]) ? cols[1] : 'Medium') as 'Easy' | 'Medium' | 'Hard',
+            questionText: cols[2] || '',
+            options: [cols[3] || '', cols[4] || '', cols[5] || '', cols[6] || ''],
+            correctOptionIndex: ansIdx,
+            explanation: cols[8] || '',
+            imageUrl: cols[9] || '',
+          });
+        }
+      }
+
+      if (importedQs.length > 0) {
+        setQuestionsList((prev) => [...prev.filter((q) => q.questionText.trim() !== ''), ...importedQs]);
+        alert(`🚀 Successfully imported ${importedQs.length} questions from CSV!`);
+      } else {
+        alert('⚠️ Could not parse questions. Please use the sample CSV template.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleParseRawTextQuestions = () => {
+    if (!rawBulkText.trim()) return;
+    const blocks = rawBulkText.trim().split(/\n\s*\n/);
+    const parsedQs: Question[] = [];
+
+    blocks.forEach((block, idx) => {
+      const lines = block.split('\n').map((l) => l.trim()).filter(Boolean);
+      if (lines.length >= 5) {
+        const qLine = lines[0].replace(/^(Q\d*[\.\:\)]|\d+[\.\:\)])\s*/i, '');
+        const optA = lines[1].replace(/^[A1][\.\)\-\:]\s*/i, '');
+        const optB = lines[2].replace(/^[B2][\.\)\-\:]\s*/i, '');
+        const optC = lines[3].replace(/^[C3][\.\)\-\:]\s*/i, '');
+        const optD = lines[4].replace(/^[D4][\.\)\-\:]\s*/i, '');
+
+        let ansIndex = 0;
+        let expText = '';
+        lines.slice(5).forEach((extra) => {
+          if (/^(ans|answer|correct)/i.test(extra)) {
+            const match = extra.match(/[A-D]/i);
+            if (match) {
+              const char = match[0].toUpperCase();
+              ansIndex = char === 'B' ? 1 : char === 'C' ? 2 : char === 'D' ? 3 : 0;
+            }
+          } else if (/^(exp|explanation|sol|solution)/i.test(extra)) {
+            expText = extra.replace(/^(exp|explanation|sol|solution)[\.\:\-]?\s*/i, '');
+          }
+        });
+
+        parsedQs.push({
+          id: `paste-${Date.now()}-${idx}`,
+          section: 'General Awareness',
+          difficulty: 'Medium',
+          questionText: qLine,
+          imageUrl: '',
+          options: [optA, optB, optC, optD],
+          correctOptionIndex: ansIndex,
+          explanation: expText,
+        });
+      }
+    });
+
+    if (parsedQs.length > 0) {
+      setQuestionsList((prev) => [...prev.filter((q) => q.questionText.trim() !== ''), ...parsedQs]);
+      setRawBulkText('');
+      setShowBulkParserModal(false);
+      alert(`⚡ Auto-Parsed ${parsedQs.length} Questions from pasted text!`);
+    } else {
+      alert('Format समझ नहीं आया! कृपया हर सवाल के बीच एक खाली लाइन छोड़ें (Q, Option A, B, C, D, Ans: B).');
+    }
+  };
+
+  const handleQuestionImageFileUpload = (qIdx: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 300 * 1024) {
+      alert('⚠️ Image size 300 KB se kam rakho taaki Mock Test fast load ho!');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      const up = [...questionsList];
+      up[qIdx].imageUrl = dataUrl;
+      setQuestionsList(up);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleMockTestSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const generatedSlug = sanitizeSeoSlug(testSlug || testTitle, true);
+    const validQuestions = questionsList.filter((q) => q.questionText.trim() !== '');
+
     if (!testTitle.trim() || !generatedSlug) {
-      alert('Please enter a valid Test Title!');
+      alert('Please enter a valid Mock Test Title!');
+      return;
+    }
+    if (validQuestions.length === 0) {
+      alert('Kam se kam 1 valid question add karo bhai!');
       return;
     }
 
     const latestTests = readLatestStorage<MockTest>('careersathi_mock_tests', mockTests);
-    const mins = Number(testTimeMinutes) || 30;
-    const marks = questionsList.length * 4;
+    const mins = Number(testTimeMinutes) || 60;
+    const posMarks = Number(positiveMarks) || 2;
+    const negMarks = Number(negativeMarks) || 0;
+    const calculatedTotalMarks = validQuestions.length * posMarks;
 
-    const newTest: MockTest = {
-      id: Date.now().toString(),
+    const payloadTest: MockTest = {
+      id: editingTestId || Date.now().toString(),
       slug: generatedSlug,
       title: testTitle.trim(),
       testTitle: testTitle.trim(),
@@ -1483,17 +1750,28 @@ export default function EnterpriseAdminCommandCenter() {
       examCategory: testCategory,
       duration: mins,
       totalTimeMinutes: mins,
-      totalMarks: marks,
-      questions: questionsList,
+      positiveMarksPerQ: posMarks,
+      negativeMarksPerQ: negMarks,
+      totalMarks: calculatedTotalMarks,
+      isFree: isTestFree,
+      isIndexed: isTestIndexed,
+      seoIntro: sanitizeSafeHtml(testSeoIntro),
+      questions: validQuestions,
       publishedAt: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
     };
 
-    saveMockTestsToStorage([newTest, ...latestTests]);
-    logAuditAction('Published CBT Mock Test', `${testTitle} (/mock-tests/${generatedSlug})`);
-    alert(`🎯 CBT Mock Test Published! Clean URL: /mock-tests/${generatedSlug}`);
-    setTestTitle('');
-    setTestSlug('');
-    setQuestionsList([{ id: '1', questionText: '', options: ['', '', '', ''], correctOptionIndex: 0 }]);
+    if (editingTestId) {
+      const updated = latestTests.map((t) => (t.id === editingTestId ? payloadTest : t));
+      saveMockTestsToStorage(updated);
+      logAuditAction('Updated CBT Mock Test', `${testTitle} (${validQuestions.length} Qs)`);
+      alert(`✅ Mock Test Updated! URL: /mock-tests/${generatedSlug}`);
+    } else {
+      saveMockTestsToStorage([payloadTest, ...latestTests]);
+      logAuditAction('Published CBT Mock Test', `${testTitle} (/mock-tests/${generatedSlug})`);
+      alert(`🎯 CBT Mock Test Published Live! Clean URL: /mock-tests/${generatedSlug}`);
+    }
+
+    resetMockTestForm();
     setActiveTab('mock-tests');
   };
 
@@ -1560,7 +1838,7 @@ export default function EnterpriseAdminCommandCenter() {
               <p className="text-[11px] text-slate-400">Enterprise RBAC &amp; SEO Command Center</p>
             </div>
             <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold">
-              v4.1 SECURE
+              v4.2 PRO
             </span>
           </div>
 
@@ -1611,7 +1889,7 @@ export default function EnterpriseAdminCommandCenter() {
               <span className="bg-slate-800 text-amber-300 px-2 py-0.5 rounded-full text-[10px]">{toolsConfig.filter((t) => t.isActive).length}/{toolsConfig.length}</span>
             </button>
             <button type="button" onClick={() => setActiveTab('mock-tests')} className={`w-full text-left px-3 py-2.5 rounded-xl transition flex items-center justify-between ${activeTab === 'mock-tests' || activeTab === 'add-mock-test' ? 'bg-blue-600 text-white shadow-lg' : 'hover:bg-slate-800 text-slate-300'}`}>
-              <span>🎯 CBT Mock Tests</span>
+              <span>🎯 CBT Mock Tests Studio</span>
               <span className="bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded-full">{mockTests.length}</span>
             </button>
             <button type="button" onClick={() => setActiveTab('partners-approval')} className={`w-full text-left px-3 py-2.5 rounded-xl transition flex items-center justify-between ${activeTab === 'partners-approval' ? 'bg-blue-600 text-white shadow-lg' : 'hover:bg-slate-800 text-slate-300'}`}>
@@ -1663,6 +1941,9 @@ export default function EnterpriseAdminCommandCenter() {
                 <button type="button" onClick={() => { resetForm(); setActiveTab('add-post'); }} className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-black shadow">
                   + New Exam Post
                 </button>
+                <button type="button" onClick={() => { resetMockTestForm(); setActiveTab('add-mock-test'); }} className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow">
+                  🎯 + Create CBT Mock Test
+                </button>
                 <button type="button" onClick={() => { resetCategoryForm(); setActiveTab('categories'); }} className="px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-black shadow">
                   🗂️ Manage Categories &amp; Subcategories
                 </button>
@@ -1691,7 +1972,7 @@ export default function EnterpriseAdminCommandCenter() {
               <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800">
                 <span className="text-[11px] text-slate-400 font-bold uppercase">CBT Mock Tests</span>
                 <div className="text-3xl font-black text-emerald-400 mt-1">{mockTests.length}</div>
-                <span className="text-[10px] text-slate-400">Synced with Homepage</span>
+                <span className="text-[10px] text-slate-400">Testbook Studio Ready</span>
               </div>
             </div>
 
@@ -2246,73 +2527,583 @@ export default function EnterpriseAdminCommandCenter() {
           </div>
         )}
 
-        {/* TAB 7: CBT MOCK TESTS MANAGER & BUILDER */}
+        {/* TAB 7: ENTERPRISE CBT MOCK TESTS MANAGER & TESTBOOK-STYLE STUDIO */}
         {activeTab === 'mock-tests' && (
-          <div className="space-y-5 max-w-5xl">
-            <div className="flex justify-between items-center">
+          <div className="space-y-5 max-w-6xl">
+            <div className="flex flex-wrap justify-between items-center gap-3 bg-slate-900 p-5 rounded-2xl border border-slate-800">
               <div>
-                <h1 className="text-2xl font-black">🎯 CBT Mock Tests ({mockTests.length})</h1>
-                <p className="text-xs text-slate-400">Fully synced with Homepage &amp; Live Exam Timer Portal</p>
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full font-black uppercase">
+                  TCS iON / Testbook Standard Engine
+                </span>
+                <h1 className="text-2xl font-black text-white mt-1">🎯 CBT Mock Tests Library ({mockTests.length})</h1>
+                <p className="text-xs text-slate-400">
+                  Manage full-length sectional &amp; full tests with negative marking, diagrams, solutions, and Google Index controls.
+                </p>
               </div>
-              <button type="button" onClick={() => setActiveTab('add-mock-test')} className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow">
-                + Create CBT Mock Test
+              <button
+                type="button"
+                onClick={() => {
+                  resetMockTestForm();
+                  setActiveTab('add-mock-test');
+                }}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-lg"
+              >
+                + Create New CBT Mock Test
               </button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {mockTests.map((t) => (
-                <div key={t.id} className="bg-slate-900 p-4 rounded-2xl border border-slate-800 flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded font-bold">{t.category || t.examCategory}</span>
-                    <h3 className="font-black text-sm text-white mt-1">{t.testTitle || t.title}</h3>
-                    <p className="text-[11px] text-emerald-400 font-mono">/mock-tests/{t.slug}</p>
-                    <p className="text-xs text-slate-400">⏱️ {t.totalTimeMinutes || t.duration} Mins • ❓ {t.questions?.length || 0} Qs</p>
+
+            {mockTests.length === 0 ? (
+              <div className="bg-slate-900 p-10 rounded-2xl border border-slate-800 text-center space-y-3">
+                <div className="text-3xl">🎯</div>
+                <h3 className="text-sm font-black text-white">No CBT Mock Tests Created Yet</h3>
+                <p className="text-xs text-slate-400 max-w-md mx-auto">
+                  Create your first SSC, Railway, Banking, or State exam mock test using manual builder, CSV/Excel bulk upload, or 1-click copy-paste parser.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {mockTests.map((t) => (
+                  <div key={t.id} className="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex flex-col justify-between gap-4 hover:border-slate-700 transition">
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded font-black">
+                          {t.category || t.examCategory}
+                        </span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${t.isFree !== false ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`}>
+                          {t.isFree !== false ? 'FREE TEST' : 'PRO SERIES'}
+                        </span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${t.isIndexed !== false ? 'bg-cyan-500/20 text-cyan-300' : 'bg-slate-800 text-slate-400'}`}>
+                          {t.isIndexed !== false ? '🔍 Google Indexed' : '🔒 Noindex (Private)'}
+                        </span>
+                      </div>
+
+                      <h3 className="font-black text-base text-white">{t.testTitle || t.title}</h3>
+                      <p className="text-[11px] text-emerald-400 font-mono">/mock-tests/{t.slug}</p>
+
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-300 pt-1">
+                        <span>⏱️ <strong>{t.totalTimeMinutes || t.duration}</strong> Mins</span>
+                        <span>❓ <strong>{t.questions?.length || 0}</strong> Questions</span>
+                        <span>🏆 <strong>{t.totalMarks || (t.questions?.length || 0) * 2}</strong> Marks</span>
+                        <span className="text-amber-300 font-bold">
+                          (+{t.positiveMarksPerQ ?? 2} / -{t.negativeMarksPerQ ?? 0.5})
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-800 text-xs">
+                      <span className="text-[11px] text-slate-500">Published: {t.publishedAt}</span>
+                      <div className="flex items-center gap-2">
+                        <Link href={`/mock-tests/${t.slug}`} target="_blank" className="px-3 py-1.5 bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 font-bold rounded-lg hover:bg-emerald-600 hover:text-white transition">
+                          Live CBT ↗
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => handleEditMockTestClick(t)}
+                          className="px-3 py-1.5 bg-blue-600/30 text-blue-300 font-bold rounded-lg hover:bg-blue-600 hover:text-white transition"
+                        >
+                          Edit Qs
+                        </button>
+                        {hasPermission('delete_content') && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm(`Delete mock test "${t.testTitle || t.title}"?`)) {
+                                saveMockTestsToStorage(mockTests.filter((x) => x.id !== t.id));
+                                logAuditAction('Deleted Mock Test', t.testTitle || t.title);
+                              }
+                            }}
+                            className="px-2.5 py-1.5 bg-rose-950 text-rose-400 font-bold rounded-lg"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Link href={`/mock-tests/${t.slug}`} target="_blank" className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg">Test ↗</Link>
-                    {hasPermission('delete_content') && (
-                      <button type="button" onClick={() => saveMockTestsToStorage(mockTests.filter((x) => x.id !== t.id))} className="px-3 py-1.5 bg-rose-950 text-rose-400 text-xs font-bold rounded-lg">✕</button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === 'add-mock-test' && (
-          <form onSubmit={handleMockTestSubmit} className="space-y-5 max-w-4xl text-xs">
-            <div className="flex justify-between items-center">
-              <h1 className="text-xl font-black">🎯 Create CBT Mock Test</h1>
-              <button type="button" onClick={handleAIAddSampleQuestions} className="px-3 py-1.5 bg-purple-600 text-white font-black rounded-lg">✨ Auto-Load Sample Questions</button>
+          <form onSubmit={handleMockTestSubmit} className="space-y-6 max-w-5xl text-xs">
+            {/* TOP ACTION HEADER */}
+            <div className="flex flex-wrap justify-between items-center gap-3 bg-slate-900 p-5 rounded-2xl border border-emerald-500/40 shadow-xl">
+              <div>
+                <span className="text-[10px] bg-emerald-500 text-slate-950 font-black px-2 py-0.5 rounded uppercase">
+                  Testbook / TCS iON Studio
+                </span>
+                <h1 className="text-xl font-black text-white mt-1">
+                  {editingTestId ? '✏️ Edit CBT Mock Test & Questions' : '🎯 Create Industry-Standard CBT Mock Test'}
+                </h1>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDownloadCsvTemplate}
+                  className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold rounded-xl border border-slate-700"
+                >
+                  📥 Sample CSV Template
+                </button>
+
+                <label className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl cursor-pointer shadow">
+                  📤 Upload CSV / JSON Bulk Qs
+                  <input type="file" accept=".csv,.json" onChange={handleBulkFileUpload} className="hidden" />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => setShowBulkParserModal(!showBulkParserModal)}
+                  className="px-3 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl shadow"
+                >
+                  📋 Smart Copy-Paste Parser
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleAIAddSampleQuestions}
+                  className="px-3 py-2 bg-purple-600 hover:bg-purple-500 text-white font-black rounded-xl shadow"
+                >
+                  ✨ Load Sample Set
+                </button>
+              </div>
             </div>
-            <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block font-bold text-slate-300 mb-1">Mock Test Title *</label>
-                <input type="text" required value={testTitle} onChange={(e) => { setTestTitle(e.target.value); setTestSlug(sanitizeSeoSlug(e.target.value, true)); }} placeholder="e.g. SSC GD Constable Full Mock Set 1" className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold" />
-              </div>
-              <div>
-                <label className="block font-bold text-emerald-400 mb-1">🛡️ Protected SEO Slug</label>
-                <input type="text" required value={testSlug} onChange={(e) => setTestSlug(sanitizeSeoSlug(e.target.value, false))} onBlur={(e) => setTestSlug(sanitizeSeoSlug(e.target.value, true))} placeholder="ssc-gd-constable-full-mock-set-1" className="w-full p-2.5 bg-slate-950 border border-emerald-500/40 rounded-xl text-emerald-300 font-mono" />
-              </div>
-              <div>
-                <label className="block font-bold text-slate-300 mb-1">Duration (Mins)</label>
-                <input type="number" value={testTimeMinutes} onChange={(e) => setTestTimeMinutes(Number(e.target.value))} className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold" />
-              </div>
-            </div>
-            {questionsList.map((q, qIdx) => (
-              <div key={q.id} className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-3">
-                <div className="font-black text-amber-400">Question #{qIdx + 1}</div>
-                <input type="text" required value={q.questionText} onChange={(e) => { const up = [...questionsList]; up[qIdx].questionText = e.target.value; setQuestionsList(up); }} placeholder="Enter question..." className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold" />
-                <div className="grid grid-cols-2 gap-2">
-                  {q.options.map((opt, oIdx) => (
-                    <input key={oIdx} type="text" required value={opt} onChange={(e) => { const up = [...questionsList]; up[qIdx].options[oIdx] = e.target.value; setQuestionsList(up); }} placeholder={`Option ${String.fromCharCode(65 + oIdx)}`} className="p-2 bg-slate-950 border border-slate-700 rounded-lg text-white" />
-                  ))}
+
+            {/* SMART COPY-PASTE TEXT PARSER MODAL */}
+            {showBulkParserModal && (
+              <div className="bg-slate-900 p-5 rounded-2xl border-2 border-amber-500/60 space-y-3 shadow-2xl">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-black text-amber-400">📋 Smart Copy-Paste Question Parser (From Word / PDF)</h3>
+                    <p className="text-[11px] text-slate-400">
+                      Paste multiple questions below. Leave an empty line between each question.
+                    </p>
+                  </div>
+                  <button type="button" onClick={() => setShowBulkParserModal(false)} className="text-slate-400 font-black text-sm">✕</button>
+                </div>
+                <textarea
+                  rows={7}
+                  value={rawBulkText}
+                  onChange={(e) => setRawBulkText(e.target.value)}
+                  placeholder={`Q1. Who founded the Maurya Empire?\nA) Ashoka\nB) Chandragupta Maurya\nC) Bindusara\nD) Chanakya\nAns: B\nExp: Chandragupta Maurya founded the Maurya Empire in 322 BCE.\n\nQ2. What is the SI unit of Force?\nA) Joule\nB) Pascal\nC) Newton\nD) Watt\nAns: C\nExp: The SI unit of force is the newton (symbol: N).`}
+                  className="w-full p-3 bg-slate-950 border border-slate-700 rounded-xl text-emerald-300 font-mono text-xs"
+                />
+                <div className="flex justify-end gap-2">
+                  <button type="button" onClick={() => setShowBulkParserModal(false)} className="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-bold">
+                    Cancel
+                  </button>
+                  <button type="button" onClick={handleParseRawTextQuestions} className="px-5 py-2 bg-amber-500 text-slate-950 font-black rounded-lg">
+                    ⚡ Convert Pasted Text into Questions
+                  </button>
                 </div>
               </div>
-            ))}
-            <div className="flex gap-3">
-              <button type="button" onClick={() => setQuestionsList([...questionsList, { id: Date.now().toString(), questionText: '', options: ['', '', '', ''], correctOptionIndex: 0 }])} className="px-4 py-3 bg-slate-800 text-white font-bold rounded-xl">+ Add Question</button>
-              <button type="submit" className="flex-1 py-3 bg-emerald-600 text-white font-black rounded-xl">🚀 Publish CBT Mock Test</button>
+            )}
+
+            {/* EXAM METADATA, MARKING SCHEME & SEO CONTROLS */}
+            <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Mock Test Title (H1) *</label>
+                  <input
+                    type="text"
+                    required
+                    value={testTitle}
+                    onChange={(e) => {
+                      setTestTitle(e.target.value);
+                      setTestSlug(sanitizeSeoSlug(e.target.value, true));
+                    }}
+                    placeholder="e.g. SSC CGL Tier-1 Full Mock Test 01 (New Pattern)"
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-emerald-400 mb-1">🛡️ Protected SEO URL Slug *</label>
+                  <input
+                    type="text"
+                    required
+                    value={testSlug}
+                    onChange={(e) => setTestSlug(sanitizeSeoSlug(e.target.value, false))}
+                    onBlur={(e) => setTestSlug(sanitizeSeoSlug(e.target.value, true))}
+                    placeholder="ssc-cgl-tier-1-full-mock-test-01"
+                    className="w-full p-2.5 bg-slate-950 border border-emerald-500/40 rounded-xl text-emerald-300 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">Target Exam Category *</label>
+                  <select
+                    value={testCategory}
+                    onChange={(e) => setTestCategory(e.target.value)}
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-amber-300 font-bold"
+                  >
+                    <option value="SSC">SSC (CGL / GD / CHSL / MTS)</option>
+                    <option value="RAILWAY">Railway RRB (NTPC / Group D / ALP)</option>
+                    <option value="BANKING">Banking (IBPS / SBI PO &amp; Clerk)</option>
+                    <option value="STATE">State Exams (BPSC / BSSC / UP Police)</option>
+                    <option value="UPSC">UPSC / Defence (NDA / CDS)</option>
+                    <option value="NEET">Entrance (CUET / NEET / JEE)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* MARKING SCHEME & GOOGLE INDEXING BAR */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2 border-t border-slate-800">
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">⏱️ Duration (Mins)</label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={240}
+                    value={testTimeMinutes}
+                    onChange={(e) => setTestTimeMinutes(Number(e.target.value))}
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-emerald-400 mb-1">✅ Correct Marks (+)</label>
+                  <select
+                    value={positiveMarks}
+                    onChange={(e) => setPositiveMarks(Number(e.target.value))}
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-emerald-300 font-bold"
+                  >
+                    <option value={1}>+1.0 Mark / Q</option>
+                    <option value={2}>+2.0 Marks / Q (SSC)</option>
+                    <option value={4}>+4.0 Marks / Q (NEET/JEE)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-rose-400 mb-1">❌ Negative Marking (-)</label>
+                  <select
+                    value={negativeMarks}
+                    onChange={(e) => setNegativeMarks(Number(e.target.value))}
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-rose-300 font-bold"
+                  >
+                    <option value={0}>0 (No Negative Marking)</option>
+                    <option value={0.25}>-0.25 (1/4th Penalty)</option>
+                    <option value={0.33}>-0.33 (1/3rd Railway/UPSC)</option>
+                    <option value={0.5}>-0.50 (SSC 2-Mark Pattern)</option>
+                    <option value={1}>-1.00 (NEET/JEE Penalty)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-300 mb-1">🎟️ Access Mode</label>
+                  <select
+                    value={isTestFree ? 'FREE' : 'PRO'}
+                    onChange={(e) => setIsTestFree(e.target.value === 'FREE')}
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold"
+                  >
+                    <option value="FREE">🟢 100% Free for All</option>
+                    <option value="PRO">⭐ Featured / Pro Series</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-cyan-300 mb-1">🔍 Google SEO Indexing</label>
+                  <select
+                    value={isTestIndexed ? 'INDEX' : 'NOINDEX'}
+                    onChange={(e) => setIsTestIndexed(e.target.value === 'INDEX')}
+                    className="w-full p-2.5 bg-slate-950 border border-cyan-500/40 rounded-xl text-cyan-300 font-bold"
+                  >
+                    <option value="INDEX">🌐 Index &amp; Rank on Google</option>
+                    <option value="NOINDEX">🔒 Noindex (Prevent Bloat)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-300 mb-1">
+                  📝 SEO Intro &amp; Exam Instructions (Helps Rank Individual Mock Test on Google)
+                </label>
+                <textarea
+                  rows={2}
+                  value={testSeoIntro}
+                  onChange={(e) => setTestSeoIntro(e.target.value)}
+                  placeholder="Write 2-3 lines about this mock test pattern, syllabus coverage, and negative marking rules for Google SEO..."
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-200"
+                />
+              </div>
+            </div>
+
+            {/* SECTION FILTER BAR & LIVE SUMMARY */}
+            <div className="bg-slate-900 px-4 py-3 rounded-2xl border border-slate-800 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-black text-slate-400 mr-1">📚 Filter by Section:</span>
+                {['ALL', 'General Intelligence & Reasoning', 'General Awareness', 'Quantitative Aptitude', 'English Comprehension'].map((sec) => (
+                  <button
+                    key={sec}
+                    type="button"
+                    onClick={() => setActiveSectionFilter(sec)}
+                    className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition ${
+                      activeSectionFilter === sec ? 'bg-blue-600 text-white' : 'bg-slate-950 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {sec === 'ALL' ? `All Questions (${questionsList.length})` : sec}
+                  </button>
+                ))}
+              </div>
+              <div className="text-emerald-400 font-black">
+                Total Marks: {questionsList.length * positiveMarks} ({questionsList.length} Qs × +{positiveMarks})
+              </div>
+            </div>
+
+            {/* QUESTIONS BUILDER CARDS */}
+            <div className="space-y-4">
+              {questionsList.map((q, qIdx) => {
+                if (activeSectionFilter !== 'ALL' && q.section !== activeSectionFilter) return null;
+                return (
+                  <div key={q.id} className="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-4 shadow-md">
+                    {/* Question Card Top Header */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="px-3 py-1 bg-amber-500 text-slate-950 font-black rounded-lg text-xs">
+                          Question #{qIdx + 1}
+                        </span>
+
+                        <select
+                          value={q.section || 'General Awareness'}
+                          onChange={(e) => {
+                            const up = [...questionsList];
+                            up[qIdx].section = e.target.value;
+                            setQuestionsList(up);
+                          }}
+                          className="p-1.5 bg-slate-950 border border-slate-700 rounded-lg text-cyan-300 font-bold"
+                        >
+                          <option value="General Intelligence & Reasoning">🧠 Reasoning</option>
+                          <option value="General Awareness">🌍 General Awareness / GK</option>
+                          <option value="Quantitative Aptitude">📐 Quantitative Aptitude (Maths)</option>
+                          <option value="English Comprehension">📖 English Language</option>
+                          <option value="Computer / Hindi / Optional">💻 Computer / Hindi / Other</option>
+                        </select>
+
+                        <select
+                          value={q.difficulty || 'Medium'}
+                          onChange={(e) => {
+                            const up = [...questionsList];
+                            up[qIdx].difficulty = e.target.value as 'Easy' | 'Medium' | 'Hard';
+                            setQuestionsList(up);
+                          }}
+                          className="p-1.5 bg-slate-950 border border-slate-700 rounded-lg text-amber-300 font-bold"
+                        >
+                          <option value="Easy">🟢 Easy</option>
+                          <option value="Medium">🟡 Medium</option>
+                          <option value="Hard">🔴 Hard</option>
+                        </select>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const clone: Question = {
+                              ...q,
+                              id: `dup-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+                              options: [...q.options],
+                            };
+                            const up = [...questionsList];
+                            up.splice(qIdx + 1, 0, clone);
+                            setQuestionsList(up);
+                          }}
+                          className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-bold text-[11px]"
+                        >
+                          ⧉ Duplicate
+                        </button>
+                        {questionsList.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setQuestionsList(questionsList.filter((_, i) => i !== qIdx))}
+                            className="px-2.5 py-1 bg-rose-950 hover:bg-rose-900 text-rose-400 rounded-lg font-bold text-[11px]"
+                          >
+                            🗑️ Remove
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Question Statement */}
+                    <div>
+                      <label className="block font-bold text-slate-300 mb-1">
+                        Question Statement (Supports Bilingual English / हिन्दी &amp; Math Symbols) *
+                      </label>
+                      <textarea
+                        rows={2}
+                        required
+                        value={q.questionText}
+                        onChange={(e) => {
+                          const up = [...questionsList];
+                          up[qIdx].questionText = e.target.value;
+                          setQuestionsList(up);
+                        }}
+                        placeholder="Type question in English or Bilingual (e.g. What is the ratio of... / अनुपात क्या होगा...)"
+                        className="w-full p-3 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold leading-relaxed"
+                      />
+                    </div>
+
+                    {/* Figure / Diagram Image Attachment (For DI, Geometry & Reasoning) */}
+                    <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-bold text-emerald-400 text-[11px]">
+                          🖼️ Question Diagram / Geometry Figure / DI Chart (Optional)
+                        </span>
+                        <label className="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 rounded-lg font-bold cursor-pointer text-[11px]">
+                          📁 Upload Figure (&lt;300KB)
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleQuestionImageFileUpload(qIdx, e)}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                      <input
+                        type="text"
+                        value={q.imageUrl || ''}
+                        onChange={(e) => {
+                          const up = [...questionsList];
+                          up[qIdx].imageUrl = e.target.value;
+                          setQuestionsList(up);
+                        }}
+                        placeholder="Or paste Image URL (https://... or Base64 diagram)"
+                        className="w-full p-2 bg-slate-900 border border-slate-800 rounded-lg text-cyan-300 font-mono text-[11px]"
+                      />
+                      {q.imageUrl && (
+                        <div className="relative inline-block mt-2">
+                          <img
+                            src={q.imageUrl}
+                            alt="Question Diagram"
+                            className="max-h-40 rounded-lg border border-slate-700 bg-white p-1"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const up = [...questionsList];
+                              up[qIdx].imageUrl = '';
+                              setQuestionsList(up);
+                            }}
+                            className="absolute -top-2 -right-2 bg-rose-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-black"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 4 Options with Radio Click to Set Correct Answer */}
+                    <div className="space-y-2">
+                      <label className="block font-bold text-slate-300">
+                        Options (Click the Option Letter A/B/C/D to mark the Correct Answer) *
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {q.options.map((opt, oIdx) => {
+                          const isCorrect = q.correctOptionIndex === oIdx;
+                          const optionLetter = String.fromCharCode(65 + oIdx);
+                          return (
+                            <div
+                              key={oIdx}
+                              className={`flex items-center gap-2 p-2 rounded-xl border transition ${
+                                isCorrect
+                                  ? 'bg-emerald-950/50 border-emerald-500'
+                                  : 'bg-slate-950 border-slate-800'
+                              }`}
+                            >
+                              <button
+                                type="button"
+                                title={`Mark Option ${optionLetter} as Correct Answer`}
+                                onClick={() => {
+                                  const up = [...questionsList];
+                                  up[qIdx].correctOptionIndex = oIdx;
+                                  setQuestionsList(up);
+                                }}
+                                className={`w-7 h-7 rounded-lg font-black text-xs shrink-0 transition ${
+                                  isCorrect
+                                    ? 'bg-emerald-500 text-slate-950 shadow'
+                                    : 'bg-slate-800 text-slate-400 hover:text-white'
+                                }`}
+                              >
+                                {optionLetter}
+                              </button>
+                              <input
+                                type="text"
+                                required
+                                value={opt}
+                                onChange={(e) => {
+                                  const up = [...questionsList];
+                                  up[qIdx].options[oIdx] = e.target.value;
+                                  setQuestionsList(up);
+                                }}
+                                placeholder={`Option ${optionLetter}`}
+                                className="w-full bg-transparent text-white font-medium outline-none"
+                              />
+                              {isCorrect && (
+                                <span className="text-[10px] text-emerald-400 font-black px-1.5 shrink-0">
+                                  ✓ Ans
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Detailed Solution / Explanation Box */}
+                    <div>
+                      <label className="block font-bold text-amber-400 mb-1">
+                        💡 Detailed Solution &amp; Exam Shortcut Trick (Shown After Test Submission)
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={q.explanation || ''}
+                        onChange={(e) => {
+                          const up = [...questionsList];
+                          up[qIdx].explanation = e.target.value;
+                          setQuestionsList(up);
+                        }}
+                        placeholder="Write step-by-step calculation, formula, or GK fact so students learn from their mistakes..."
+                        className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-300"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* BOTTOM STICKY ACTION BAR */}
+            <div className="flex flex-wrap gap-3 bg-slate-900 p-4 rounded-2xl border border-slate-800 sticky bottom-4 shadow-2xl">
+              <button
+                type="button"
+                onClick={() =>
+                  setQuestionsList([
+                    ...questionsList,
+                    {
+                      id: Date.now().toString(),
+                      section: activeSectionFilter === 'ALL' ? 'General Awareness' : activeSectionFilter,
+                      difficulty: 'Medium',
+                      questionText: '',
+                      imageUrl: '',
+                      options: ['', '', '', ''],
+                      correctOptionIndex: 0,
+                      explanation: '',
+                    },
+                  ])
+                }
+                className="px-5 py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-black rounded-xl border border-slate-700"
+              >
+                + Add Next Question (#{questionsList.length + 1})
+              </button>
+
+              <button
+                type="submit"
+                className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm rounded-xl shadow-xl transition"
+              >
+                {editingTestId
+                  ? `💾 Update CBT Mock Test (${questionsList.length} Qs)`
+                  : `🚀 Publish CBT Mock Test Live (${questionsList.length} Qs)`}
+              </button>
             </div>
           </form>
         )}
